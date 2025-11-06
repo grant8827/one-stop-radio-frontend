@@ -1,0 +1,131 @@
+.App {
+  min-height: 100vh;
+  background-color: #1a1a1a;
+}
+
+/* Dashboard Styles */
+.dashboard {
+  background-color: #1a1a1a;
+  min-height: calc(100vh - 64px);
+}
+
+.dashboard .container-fluid {
+  background-color: #1a1a1a;
+}
+
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 80px 0;
+  text-align: center;
+}
+
+.hero-section h1 {
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.hero-section h2 {
+  font-weight: 300;
+  margin-bottom: 30px;
+  opacity: 0.9;
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: #667eea;
+}
+
+.feature-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.login-form {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  padding: 40px;
+  margin-top: -50px;
+  position: relative;
+  z-index: 10;
+}
+
+.cta-section {
+  background: #f8f9fa;
+  padding: 60px 0;
+}
+
+.stats-section {
+  padding: 60px 0;
+  background: linear-gradient(45deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+}
+
+.stat-number {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+/* DJ Interface Styles */
+.dj-interface {
+  background-color: #1a1a1a;
+  min-height: calc(100vh - 64px);
+  padding: 20px 0;
+}
+
+.main-area {
+  padding-right: 15px;
+}
+
+.side-panel {
+  padding-left: 15px;
+}
+
+.mixer-channel {
+  background-color: #2a2a2a !important;
+  border: 1px solid #404040 !important;
+}
+
+.social-platform {
+  background-color: #333333;
+  border: 1px solid #555555;
+  transition: all 0.3s ease;
+}
+
+.social-platform:hover {
+  background-color: #404040;
+  border-color: #666666;
+}
+
+.social-platform.active {
+  background-color: #1e3a2e;
+  border-color: #4caf50;
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 60px 0;
+  }
+  
+  .login-form {
+    margin-top: 20px;
+    padding: 30px;
+  }
+
+  .main-area, .side-panel {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  
+  .dj-interface .row {
+    flex-direction: column;
+  }
+}
