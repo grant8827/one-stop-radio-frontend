@@ -1,15 +1,18 @@
 import React, { useRef, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 
 const VideoPlayer: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    // Capture the current ref value at effect setup time
+    const currentVideoRef = videoRef.current;
+    
     const enableWebcam = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (currentVideoRef) {
+          currentVideoRef.srcObject = stream;
         }
       } catch (err) {
         console.error("Error accessing webcam: ", err);
@@ -20,8 +23,8 @@ const VideoPlayer: React.FC = () => {
 
     // Cleanup function to stop the stream when the component unmounts
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      if (currentVideoRef && currentVideoRef.srcObject) {
+        const stream = currentVideoRef.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
     };
