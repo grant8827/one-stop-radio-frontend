@@ -23,8 +23,11 @@ RUN npm run build
 # Install serve globally to serve the static build
 RUN npm install -g serve
 
-# Expose port (Railway will set PORT env var)
-EXPOSE 3000
+# Make startup script executable
+RUN chmod +x start.sh
 
-# Start the application
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Railway will set the PORT environment variable
+EXPOSE $PORT
+
+# Use startup script for better port handling and debugging
+CMD ["./start.sh"]
