@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneStopRadio Environment Variable Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .env-var { background: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .missing { background: #4a1a1a; }
+        .present { background: #1a4a1a; }
+        h2 { color: #4CAF50; }
+        .test-button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 OneStopRadio Environment Debug</h1>
+        <p>This page shows which environment variables are available to your frontend in production.</p>
+        
+        <h2>📊 Environment Variables Status</h2>
+        <div id="env-status"></div>
+        
+        <h2>🌐 Backend Connection Tests</h2>
+        <button class="test-button" onclick="testBackend('API')">Test Python API</button>
+        <button class="test-button" onclick="testBackend('SIGNALING')">Test Node.js Signaling</button>
+        <button class="test-button" onclick="testBackend('AUDIO')">Test Audio Backend</button>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // Environment variables to check
+        const envVars = [
+            'REACT_APP_API_BASE_URL',
+            'REACT_APP_SIGNALING_URL', 
+            'REACT_APP_AUDIO_URL',
+            'REACT_APP_WS_URL',
+            'REACT_APP_AUDIO_WS_URL',
+            'REACT_APP_ENVIRONMENT',
+            'REACT_APP_DEBUG',
+            'NODE_ENV'
+        ];
+
+        // Display environment variable status
+        function displayEnvStatus() {
+            const container = document.getElementById('env-status');
+            
+            envVars.forEach(varName => {
+                const value = process?.env?.[varName] || 'NOT SET';
+                const isPresent = value !== 'NOT SET';
+                
+                const div = document.createElement('div');
+                div.className = `env-var ${isPresent ? 'present' : 'missing'}`;
+                div.innerHTML = `
+                    <strong>${varName}:</strong> 
+                    <span>${isPresent ? value : '❌ NOT SET'}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Test backend connectivity
+        async function testBackend(service) {
+            const urls = {
+                'API': process?.env?.REACT_APP_API_BASE_URL || 'https://backend-fast-py-production.up.railway.app',
+                'SIGNALING': process?.env?.REACT_APP_SIGNALING_URL || 'https://one-stop-radio-backend-nd-production.up.railway.app',
+                'AUDIO': process?.env?.REACT_APP_AUDIO_URL || 'https://one-stop-radio-backen-c-production.up.railway.app'
+            };
+
+            const testUrl = `${urls[service]}/api/health`;
+            const resultsDiv = document.getElementById('test-results');
+            
+            try {
+                const response = await fetch(testUrl);
+                const status = response.ok ? '✅ ONLINE' : '❌ ERROR';
+                
+                resultsDiv.innerHTML += `
+                    <div class="env-var ${response.ok ? 'present' : 'missing'}">
+                        <strong>${service} Backend:</strong> ${status} (${response.status})
+                        <br><small>URL: ${testUrl}</small>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <div class="env-var missing">
+                        <strong>${service} Backend:</strong> ❌ CONNECTION ERROR
+                        <br><small>URL: ${testUrl}</small>
+                        <br><small>Error: ${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', displayEnvStatus);
+    </script>
+</body>
+</html>
