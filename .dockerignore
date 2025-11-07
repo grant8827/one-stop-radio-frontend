@@ -7,8 +7,8 @@ yarn-error.log*
 # testing
 /coverage
 
-# production
-/build
+# production (exclude any existing build output)
+build/
 
 # misc
 .DS_Store
@@ -68,7 +68,7 @@ jspm_packages/
 
 # Gatsby files
 .cache/
-public
+# public - REMOVED: React apps need public/ directory for build
 
 # Storybook build outputs
 .out
