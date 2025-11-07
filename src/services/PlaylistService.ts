@@ -27,7 +27,7 @@ class PlaylistService {
   private playlists: Map<string, Playlist> = new Map();
   private currentPlaylist: string | null = null;
   private trackCache: Map<string, Track> = new Map();
-  private baseUrl: string = 'http://localhost:8000/api/music';
+  private baseUrl: string = `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'}/api/music`;
 
   constructor() {
     this.loadPlaylistsFromStorage();

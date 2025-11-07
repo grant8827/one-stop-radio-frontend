@@ -209,7 +209,7 @@ const AudioStreamEncoder: React.FC<AudioStreamEncoderProps> = ({
   // API calls to C++ backend
   const apiCall = async (endpoint: string, method: string = 'GET', body?: any) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/audio/stream${endpoint}`, {
+      const response = await fetch(`${process.env.REACT_APP_AUDIO_URL || 'http://localhost:8080'}/api/audio/stream${endpoint}`, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,

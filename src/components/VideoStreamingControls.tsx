@@ -127,7 +127,7 @@ const VideoStreamingControls: React.FC<VideoStreamingControlsProps> = ({ onVideo
   // API call helper
   const apiCall = async (endpoint: string, method: string = 'GET', body?: any) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/video${endpoint}`, {
+      const response = await fetch(`${process.env.REACT_APP_AUDIO_URL || 'http://localhost:8080'}/api/video${endpoint}`, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,

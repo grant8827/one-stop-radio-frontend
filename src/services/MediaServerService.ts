@@ -43,7 +43,7 @@ class MediaServerService {
   private peerConnection: RTCPeerConnection | null = null;
   private mediaStream: MediaStream | null = null;
   private dataChannel: RTCDataChannel | null = null;
-  private signalingUrl = 'ws://localhost:9090/webrtc'; // C++/FFmpeg WebRTC endpoint
+  private signalingUrl = `${process.env.REACT_APP_AUDIO_WS_URL || 'ws://localhost:8081'}/webrtc`; // C++/FFmpeg WebRTC endpoint
   private signalingSocket: WebSocket | null = null;
   
   private config: StreamConfig = {

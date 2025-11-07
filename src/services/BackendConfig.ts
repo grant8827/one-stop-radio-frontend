@@ -20,8 +20,8 @@ export const BACKEND_CONFIG = {
   SIGNALING: {
     HTTP_PORT: 5000,
     WS_PORT: 5001,
-    BASE_URL: 'http://localhost:5000',
-    WS_URL: 'ws://localhost:5001',
+    BASE_URL: process.env.REACT_APP_SIGNALING_URL || 'http://localhost:5000',
+    WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:5001',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',
@@ -68,7 +68,7 @@ export const BACKEND_CONFIG = {
   // Python FastAPI Service (Authentication & Data Management)
   API: {
     PORT: 8000,
-    BASE_URL: 'http://localhost:8000',
+    BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
     PREFIX: '/api',
     ENDPOINTS: {
       // Health check
@@ -103,8 +103,8 @@ export const BACKEND_CONFIG = {
     HTTP_PORT: 8080,
     WEBRTC_PORT: 8081,
     RTMP_PORT: 1935,
-    BASE_URL: 'http://localhost:8080',
-    WEBRTC_URL: 'ws://localhost:8081',
+    BASE_URL: process.env.REACT_APP_AUDIO_URL || 'http://localhost:8080',
+    WEBRTC_URL: process.env.REACT_APP_AUDIO_WS_URL || 'ws://localhost:8081',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',

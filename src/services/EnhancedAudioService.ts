@@ -56,7 +56,7 @@ export interface DelaySettings {
 }
 
 class EnhancedAudioService {
-    private baseUrl = 'http://localhost:8080/api';
+    private baseUrl = `${process.env.REACT_APP_AUDIO_URL || 'http://localhost:8080'}/api`;
     private levelUpdateCallbacks: ((levels: AudioLevels) => void)[] = [];
     private micLevelUpdateCallbacks: ((levels: AudioLevels) => void)[] = [];
     private isMonitoringLevels = false;

@@ -45,7 +45,7 @@ class AudioService {
   private useBackendAudio: boolean = true; // Prefer C++ backend when available
   private backendAvailable: boolean = false;
   private backendLevels: { master?: any; microphone?: any } = {};
-  private cppMediaServerUrl: string = 'http://localhost:8080'; // C++ media server endpoint
+  private cppMediaServerUrl: string = process.env.REACT_APP_AUDIO_URL || 'http://localhost:8080'; // C++ media server endpoint
   private backendWebSocket: WebSocket | null = null;
   
   // Audio encoding configuration
@@ -111,7 +111,7 @@ class AudioService {
   private async initializeBackendConnection(): Promise<void> {
     try {
       // Connect to WebSocket for real-time audio level updates
-      const wsUrl = 'ws://localhost:8080/ws/audio';
+      const wsUrl = `${(process.env.REACT_APP_AUDIO_WS_URL || 'ws://localhost:8081').replace('wss://', 'ws://').replace('ws://', 'ws://')}/ws/audio`;
       this.backendWebSocket = new WebSocket(wsUrl);
       
       this.backendWebSocket.onopen = () => {
