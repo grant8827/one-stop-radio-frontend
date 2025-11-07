@@ -12,6 +12,13 @@ import { PlaylistProvider } from './contexts/PlaylistContext';
 import { Container } from 'react-bootstrap';
 import { audioService } from './services/AudioService';
 
+// Debug environment variables in production
+console.log('🔍 OneStopRadio Environment Debug:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
+console.log('REACT_APP_SIGNALING_URL:', process.env.REACT_APP_SIGNALING_URL); 
+console.log('REACT_APP_AUDIO_URL:', process.env.REACT_APP_AUDIO_URL);
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentView, setCurrentView] = useState<'dashboard' | 'mixer' | 'encoder' | 'video' | 'device-test'>('dashboard');
