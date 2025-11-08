@@ -557,17 +557,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
                     src={station.logo} 
                     sx={{ width: 80, height: 80, mr: 3 }}
                   >
-                    {station.name.charAt(0)}
+                    {station.name?.charAt(0) || 'R'}
                   </Avatar>
                   <Box>
                     <Typography variant="h5" sx={{ color: '#ffffff' }}>
-                      {station.name}
+                      {station.name || 'Radio Station'}
                     </Typography>
                     <Typography variant="body1" sx={{ color: '#cccccc', mb: 1 }}>
-                      {station.description}
+                      {station.description || 'No description available'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                      <Chip label={station.genre} size="small" color="primary" />
+                      <Chip label={station.genre || 'Music'} size="small" color="primary" />
                       <Chip label="English" size="small" variant="outlined" />
                     </Box>
                     <Button variant="outlined" size="small" startIcon={<EditIcon />}>

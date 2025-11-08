@@ -24,15 +24,8 @@ import {
   Tooltip
 } from '@mui/material';
 import {
-  PlayArrow as PlayIcon,
-  SkipNext as NextIcon,
-  SkipPrevious as PrevIcon,
-  Shuffle as ShuffleIcon,
-  Repeat as RepeatIcon,
-  RepeatOne as RepeatOneIcon,
   QueueMusic as QueueIcon,
   Search as SearchIcon,
-
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
   GetApp as LoadToDeckIcon,
@@ -94,7 +87,6 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [playMode, setPlayMode] = useState<'normal' | 'shuffle' | 'repeat' | 'repeat-one'>('normal');
   
   // UI state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
@@ -662,54 +654,6 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
             }
           }}
         />
-      </Box>
-
-      {/* Playback Controls */}
-      <Box sx={{ 
-        p: 1, 
-        borderBottom: '1px solid #333',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 1,
-        bgcolor: '#2a2a2a'
-      }}>
-        <IconButton size="small" sx={{ color: '#ffffff' }}>
-          <PrevIcon />
-        </IconButton>
-        <IconButton 
-          size="small" 
-          sx={{ 
-            color: '#ffeb3b',
-            bgcolor: 'transparent',
-            '&:hover': { bgcolor: '#444' }
-          }}
-        >
-          <PlayIcon />
-        </IconButton>
-        <IconButton size="small" sx={{ color: '#ffffff' }}>
-          <NextIcon />
-        </IconButton>
-        
-        <Box sx={{ mx: 2, width: '2px', height: '20px', bgcolor: '#555' }} />
-        
-        <Tooltip title={`Play Mode: ${playMode}`}>
-          <IconButton 
-            size="small"
-            onClick={() => {
-              const modes: typeof playMode[] = ['normal', 'shuffle', 'repeat', 'repeat-one'];
-              const currentIndex = modes.indexOf(playMode);
-              const nextMode = modes[(currentIndex + 1) % modes.length];
-              setPlayMode(nextMode);
-            }}
-            sx={{ color: playMode === 'normal' ? '#ffffff' : '#ffeb3b' }}
-          >
-            {playMode === 'shuffle' && <ShuffleIcon />}
-            {playMode === 'repeat' && <RepeatIcon />}
-            {playMode === 'repeat-one' && <RepeatOneIcon />}
-            {playMode === 'normal' && <QueueIcon />}
-          </IconButton>
-        </Tooltip>
       </Box>
 
       {/* Track List */}

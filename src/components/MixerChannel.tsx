@@ -45,6 +45,7 @@ interface ChannelState {
   position: number;
   duration: number;
   loadedFile: string | null;
+  loadedTrackId: string | null;
 }
 
 const MixerChannel: React.FC<MixerChannelProps> = ({
@@ -76,14 +77,15 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
     bpm: 128,
     position: 0,
     duration: 0,
-    loadedFile: null
+    loadedFile: null,
+    loadedTrackId: null
   });
 
   // Timer for updating playback position
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load audio file into channel
-  const handleLoadFile = React.useCallback(async (file: File, trackName?: string) => {
+  const handleLoadFile = React.useCallback(async (file: File, trackName?: string, trackId?: string, loadMethod: 'double_click' | 'drag_drop' | 'button' | 'unknown' = 'unknown') => {
     try {
       console.log(`🎵 Loading file "${file.name}" into channel ${channelId}`);
       console.log(`📊 File details:`, {
@@ -127,16 +129,25 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
       
       // Map channel ID to deck number for new API
       const deckNumber = channelId === 'channelA' ? 1 : 2;
-      console.log(`📀 Loading to deck ${deckNumber} (${channelId})`);
+      console.log(`📀 Loading to deck ${deckNumber} (${channelId}) via ${loadMethod}`);
       
       // Use the enhanced loadTrack method with C++ Media Server integration
-      const success = await audioService.loadTrack(file, deckNumber);
+      const trackInfo = {
+        id: trackId,
+        title: trackName || file.name,
+        artist: 'Unknown Artist', // Could be extracted from track metadata
+        duration: 180, // Default duration, could be detected from audio file
+        loadMethod: loadMethod
+      };
+      
+      const success = await audioService.loadTrack(file, deckNumber, trackInfo);
       
       if (success) {
         setState(prev => ({ 
           ...prev, 
           isLoading: false,
           loadedFile: trackName || file.name,
+          loadedTrackId: trackId || null,
           duration: 0 // Will be updated when file loads
         }));
         console.log(`✅ Successfully loaded "${file.name}" into channel ${channelId}`);
@@ -203,14 +214,15 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
 
   // Auto-load track when assigned to channel
   React.useEffect(() => {
-    if (track && track.filePath && track.id !== state.loadedFile) {
-      console.log(`MixerChannel: Auto-loading track "${track.title}" into channel ${channelId}`);
+    if (track && track.filePath && track.id !== state.loadedTrackId) {
+      console.log(`MixerChannel: Auto-loading track "${track.title}" (ID: ${track.id}) into channel ${channelId}`);
       
       // Check if it's a URL or local file path
       const isUrl = track.filePath.startsWith('http://') || track.filePath.startsWith('https://');
       const isBlob = track.filePath.startsWith('blob:');
       
       if (isUrl || isBlob) {
+        console.log(`🔗 MixerChannel: Loading track from ${isBlob ? 'blob' : 'URL'}: ${track.filePath.substring(0, 50)}...`);
         // Create a File object from the filePath for URLs/blobs
         fetch(track.filePath)
           .then(response => {
@@ -223,23 +235,30 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             if (blob.size === 0) {
               throw new Error('File is empty or corrupted');
             }
+            console.log(`✅ MixerChannel: Successfully fetched blob (${blob.size} bytes) for "${track.title}"`);
             const file = new File([blob], track.title, { type: 'audio/mpeg' });
-            handleLoadFile(file, track.title);
+            // This auto-loading could be from double-click, drag-drop, or button press
+            // We'll mark it as 'unknown' since we don't track the original method here
+            return handleLoadFile(file, track.title, track.id, 'unknown');
+          })
+          .then(() => {
+            console.log(`✅ MixerChannel: Track "${track.title}" successfully loaded and marked as loaded`);
           })
           .catch(error => {
-            console.error(`Failed to auto-load track "${track.title}":`, error);
+            console.error(`❌ Failed to auto-load track "${track.title}":`, error);
             // Don't show alert for auto-load failures, just log
           });
       } else {
-        console.warn(`Cannot auto-load track "${track.title}": Local file paths not supported in browser`);
+        console.warn(`⚠️ Cannot auto-load track "${track.title}": Local file paths not supported in browser`);
         // For local paths, just update the UI to show the track name without loading
         setState(prev => ({ 
           ...prev, 
-          loadedFile: track.title 
+          loadedFile: track.title,
+          loadedTrackId: track.id
         }));
       }
     }
-  }, [track, handleLoadFile, state.loadedFile, channelId]);
+  }, [track, handleLoadFile, state.loadedTrackId, channelId]);
 
   // Notify parent of state changes
   React.useEffect(() => {
@@ -464,8 +483,8 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
               throw new Error('File is empty or corrupted');
             }
             const file = new File([blob], track.title, { type: 'audio/mpeg' });
-            handleLoadFile(file, track.title);
-            console.log(`🎧 MixerChannel: Audio file loaded for playback on Deck ${deckId}`);
+            handleLoadFile(file, track.title, track.id, 'drag_drop');
+            console.log(`🎧 MixerChannel: Audio file loaded for playback on Deck ${deckId} via drag & drop`);
           })
           .catch(error => {
             console.error('MixerChannel: Failed to load audio for playback:', error);

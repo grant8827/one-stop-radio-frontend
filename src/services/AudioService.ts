@@ -303,24 +303,40 @@ class AudioService {
   /**
    * Load audio file into channel - C++ Backend Integration
    */
-  async loadAudioFile(channelId: string, file: File): Promise<boolean> {
-    console.log(`🎵 Loading audio file "${file.name}" into channel ${channelId}`);
+  async loadAudioFile(channelId: string, file: File, trackInfo?: { 
+    id?: string; 
+    title?: string; 
+    artist?: string; 
+    duration?: number; 
+    loadMethod?: 'double_click' | 'drag_drop' | 'button' | 'unknown' 
+  }): Promise<boolean> {
+    const trackTitle = trackInfo?.title || file.name;
+    const loadMethod = trackInfo?.loadMethod || 'unknown';
+    
+    console.log(`🎵 Loading audio file "${trackTitle}" into channel ${channelId} via ${loadMethod}`);
 
     // Try C++ backend first
     if (this.useBackendAudio) {
       try {
-        // Create a temporary file path for the C++ backend
-        const tempFilePath = `/tmp/${file.name}`;
+        // Create enhanced payload with track metadata for C++ backend
+        const payload = {
+          channel: channelId,
+          filePath: `blob://${file.name}`, // Indicate this is a browser blob
+          trackTitle: trackTitle,
+          trackId: trackInfo?.id || `track-${Date.now()}`,
+          artist: trackInfo?.artist || 'Unknown Artist',
+          duration: trackInfo?.duration || 180,
+          loadMethod: loadMethod,
+          fileSize: file.size,
+          fileType: file.type
+        };
         
         const response = await fetch(`${this.cppMediaServerUrl}/api/radio/audio/load`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            channel: channelId,
-            filePath: tempFilePath
-          })
+          body: JSON.stringify(payload)
         });
 
         const result = await response.json();
@@ -1137,14 +1153,23 @@ class AudioService {
   /**
    * Load track to specific deck (used by MixerChannel components)
    */
-  async loadTrack(file: File, deckNumber: number): Promise<boolean> {
-    console.log(`🎵 Loading track "${file.name}" to deck ${deckNumber}`);
+  async loadTrack(file: File, deckNumber: number, trackInfo?: { 
+    id?: string; 
+    title?: string; 
+    artist?: string; 
+    duration?: number; 
+    loadMethod?: 'double_click' | 'drag_drop' | 'button' | 'unknown' 
+  }): Promise<boolean> {
+    const trackTitle = trackInfo?.title || file.name;
+    const loadMethod = trackInfo?.loadMethod || 'unknown';
+    
+    console.log(`🎵 Loading track "${trackTitle}" to deck ${deckNumber} via ${loadMethod}`);
     
     // Map deck numbers to channel IDs
     const channelId = deckNumber === 1 ? 'channelA' : 'channelB';
     
-    // Use the existing loadAudioFile method
-    return await this.loadAudioFile(channelId, file);
+    // Use the enhanced loadAudioFile method with track info
+    return await this.loadAudioFile(channelId, file, trackInfo);
   }
 
   /**
