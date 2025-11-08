@@ -34,7 +34,7 @@ interface MixerProps {
 const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   const [micEnabled, setMicEnabled] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [crossfader, setCrossfader] = useState(50);
+  const [crossfader, setCrossfader] = useState(0); // 0 = center, -100 = full A, +100 = full B
   const [masterBass, setMasterBass] = useState(50);
   const [masterMid, setMasterMid] = useState(50);
   const [masterTreble, setMasterTreble] = useState(50);
@@ -57,7 +57,9 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
     const initializeAudio = async () => {
       try {
         await audioService.initialize();
-        console.log('✅ AudioService initialized for mixer');
+        // Initialize crossfader to center position
+        audioService.setCrossfader(0); // 0 = center position
+        console.log('✅ AudioService initialized for mixer with crossfader at center');
       } catch (error) {
         console.error('❌ Failed to initialize audio service:', error);
       }
