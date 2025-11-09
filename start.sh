@@ -20,8 +20,20 @@ if [ ! -d "build" ]; then
   exit 1
 fi
 
+# Check if serve is available
+if ! command -v serve > /dev/null; then
+  echo "❌ Error: serve command not found!"
+  echo "Installing serve globally..."
+  npm install -g serve
+fi
+
 echo "✅ Build directory found, starting server..."
 
-# Start the server with proper port binding
-# Railway requires binding to 0.0.0.0 and using the PORT env var
-exec serve -s build -l ${PORT:-3000} -H 0.0.0.0
+# Show serve version for debugging
+serve --version
+
+# Start the server with correct flags
+# -s: single page app mode (serves index.html for all routes)
+# -p: port number
+# serve automatically binds to 0.0.0.0 in production
+exec serve -s build -p ${PORT:-3000}
