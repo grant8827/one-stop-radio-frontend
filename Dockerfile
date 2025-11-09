@@ -4,30 +4,38 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files first (for better Docker layer caching)
+# Install dependencies first for better caching
 COPY package*.json ./
+RUN npm ci --only=production=false --silent
 
-# Install dependencies
-RUN npm ci --only=production=false
-
-# Copy all source files (respecting .dockerignore)
+# Copy source files
 COPY . .
 
 # Verify required files exist
-RUN ls -la public/
 RUN test -f public/index.html || (echo "ERROR: public/index.html not found" && exit 1)
 
-# Build the app
-RUN npm run build
+# Set build environment variables
+ENV NODE_ENV=production
+ENV GENERATE_SOURCEMAP=false
+ENV CI=true
+ENV NODE_OPTIONS="--max_old_space_size=4096"
 
-# Install serve globally to serve the static build
-RUN npm install -g serve
+# Make build script executable and run it
+RUN chmod +x build.sh
+RUN ./build.sh
+
+# Verify build output
+RUN test -d build || (echo "ERROR: build directory not created" && exit 1)
+RUN test -f build/index.html || (echo "ERROR: build/index.html not found" && exit 1)
+
+# Install serve globally
+RUN npm install -g serve@14.2.1
 
 # Make startup script executable
 RUN chmod +x start.sh
 
-# Railway will set the PORT environment variable
-EXPOSE $PORT
+# Expose port
+EXPOSE 3000
 
-# Use startup script for better port handling and debugging
+# Use startup script
 CMD ["./start.sh"]

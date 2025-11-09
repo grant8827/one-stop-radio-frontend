@@ -75,6 +75,10 @@ export const BACKEND_CONFIG = {
       // Health check
       HEALTH: '/api/health',
       
+      // Authentication
+      LOGIN: '/api/v1/auth/login',
+      PROFILE: '/api/v1/user/profile',
+      
       // Station management
       STATIONS_ME: '/api/v1/stations/me',
       STATIONS_UPDATE: '/api/v1/stations/me',
