@@ -37,6 +37,7 @@ interface WaveformProps {
   songDuration?: number; // Song duration in seconds
   currentTime?: number; // Current playback time in seconds
   songTitle?: string;
+  realTimeData?: Float32Array | null; // Real-time audio waveform data
   onSeek?: (percentage: number) => void; // Callback for seeking
   onTimeUpdate?: (currentTime: number, duration: number) => void; // Real-time updates
 }
@@ -122,6 +123,7 @@ const Waveform: React.FC<WaveformProps> = ({
   songDuration = 180, // Default 3 minutes
   currentTime = 0,
   songTitle = "Current Track",
+  realTimeData = null,
   onSeek,
   onTimeUpdate
 }) => {
@@ -527,17 +529,28 @@ const Waveform: React.FC<WaveformProps> = ({
           />
         )}
         
-        {/* Enhanced Waveform Bars with Dynamic Animation */}
+        {/* Enhanced Waveform Bars with Dynamic Animation and Real-Time Data */}
         {waveformData.map((amplitude: number, i: number) => {
           // Enhanced animation with multiple layers
           let animatedAmplitude = amplitude;
           
-          if (isPlaying && trackLoaded) {
-            // Primary wave motion
+          // Use real-time audio data when available
+          if (realTimeData && isPlaying && trackLoaded) {
+            // Map waveform bar index to real-time data array
+            const dataIndex = Math.floor((i / waveformData.length) * realTimeData.length);
+            const realTimeAmplitude = Math.abs(realTimeData[dataIndex] || 0);
+            
+            // Blend real-time data with base waveform for visual consistency
+            const realTimeScale = Math.min(1.0, realTimeAmplitude * 2); // Scale real-time data
+            animatedAmplitude = (amplitude * 0.3) + (realTimeScale * 0.7); // 70% real-time, 30% base
+            
+            // Add subtle animation for visual appeal
+            const waveMotion = Math.sin((animationOffset * 0.02) + (i * 0.08)) * 0.02;
+            animatedAmplitude += waveMotion;
+          } else if (isPlaying && trackLoaded) {
+            // Fallback animation when no real-time data
             const waveMotion = Math.sin((animationOffset * 0.02) + (i * 0.08)) * 0.04;
-            // Frequency response simulation
             const freqResponse = Math.sin((animationOffset * 0.05) + (i * 0.12)) * 0.03;
-            // Beat detection simulation
             const beatPulse = Math.sin(animationOffset * 0.1) * 0.02;
             
             animatedAmplitude += waveMotion + freqResponse + beatPulse;

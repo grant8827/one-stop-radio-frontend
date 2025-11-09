@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
 import { 
   Typography, 
@@ -41,7 +41,6 @@ interface ChannelState {
   eqMid: number;
   eqLow: number;
   gain: number;
-  bpm: number;
   position: number;
   duration: number;
   loadedFile: string | null;
@@ -74,7 +73,6 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
     eqMid: 50,
     eqLow: 50,
     gain: 50,
-    bpm: 128,
     position: 0,
     duration: 0,
     loadedFile: null,
@@ -140,20 +138,24 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
         loadMethod: loadMethod
       };
       
-      const success = await audioService.loadTrack(file, deckNumber, trackInfo);
+      const result = await audioService.loadTrack(file, deckNumber, trackInfo);
       
-      if (success) {
+      if (result.success) {
+        // Get accurate duration from AudioService
+        const actualDuration = audioService.getTrackDuration(channelId) || result.duration || 180;
+        
         setState(prev => ({ 
           ...prev, 
           isLoading: false,
           loadedFile: trackName || file.name,
           loadedTrackId: trackId || null,
-          duration: 0 // Will be updated when file loads
+          duration: actualDuration,
+          position: 0 // Reset position when new track loads
         }));
-        console.log(`✅ Successfully loaded "${file.name}" into channel ${channelId}`);
+        console.log(`✅ Successfully loaded "${file.name}" into channel ${channelId} (Duration: ${actualDuration?.toFixed(2)}s)`);
       } else {
         setState(prev => ({ ...prev, isLoading: false }));
-        throw new Error('AudioService.loadTrack returned false - check console for details');
+        throw new Error('AudioService.loadTrack failed - check console for details');
       }
     } catch (error) {
       setState(prev => ({ ...prev, isLoading: false }));
@@ -181,23 +183,57 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
     }
   }, [channelId]);
 
-  // Start/stop position timer
-  React.useEffect(() => {
+  // Start/stop real-time position tracking
+  useEffect(() => {
     if (state.isPlaying && state.duration > 0) {
-      intervalRef.current = setInterval(() => {
-        setState(prev => {
-          const newPosition = prev.position + 0.1;
-          if (newPosition >= prev.duration) {
-            if (prev.isLooping) {
-              return { ...prev, position: 0 };
-            } else {
+      intervalRef.current = setInterval(async () => {
+        try {
+          // Get real position from AudioService
+          const { audioService } = await import('../services/AudioService');
+          const actualPosition = audioService.getCurrentPosition(channelId);
+          const actualDuration = audioService.getTrackDuration(channelId);
+          const isLooping = audioService.isChannelLooping(channelId);
+          
+          setState(prev => {
+            // Update duration if it changed
+            const newDuration = actualDuration > 0 ? actualDuration : prev.duration;
+            
+            // Check if track finished for non-looping tracks
+            if (actualPosition >= newDuration && !isLooping && prev.isPlaying) {
               onStop?.();
-              return { ...prev, isPlaying: false, position: 0 };
+              return { 
+                ...prev, 
+                isPlaying: false, 
+                position: 0,
+                duration: newDuration,
+                isLooping: isLooping
+              };
             }
-          }
-          return { ...prev, position: newPosition };
-        });
-      }, 100);
+            
+            return { 
+              ...prev, 
+              position: actualPosition,
+              duration: newDuration,
+              isLooping: isLooping
+            };
+          });
+        } catch (error) {
+          console.warn('Error updating position from AudioService:', error);
+          // Fallback to time-based increment if AudioService fails
+          setState(prev => {
+            const newPosition = prev.position + 0.1;
+            if (newPosition >= prev.duration) {
+              if (prev.isLooping) {
+                return { ...prev, position: 0 };
+              } else {
+                onStop?.();
+                return { ...prev, isPlaying: false, position: 0 };
+              }
+            }
+            return { ...prev, position: newPosition };
+          });
+        }
+      }, 100); // Update every 100ms for smooth position tracking
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -210,7 +246,41 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [state.isPlaying, state.duration, state.isLooping, onStop]);
+  }, [state.isPlaying, state.duration, channelId, onStop]);
+
+  // Real-time audio visualization data for waveform
+  const [waveformData, setWaveformData] = React.useState<Float32Array | null>(null);
+  
+  React.useEffect(() => {
+    let animationFrame: number;
+    
+    if (state.isPlaying && state.loadedFile) {
+      const updateWaveformData = async () => {
+        try {
+          const { audioService } = await import('../services/AudioService');
+          const frequencyData = audioService.getChannelWaveformData(channelId);
+          
+          if (frequencyData) {
+            setWaveformData(frequencyData);
+          }
+          
+          animationFrame = requestAnimationFrame(updateWaveformData);
+        } catch (error) {
+          console.error('Error getting waveform data:', error);
+        }
+      };
+      
+      updateWaveformData();
+    } else {
+      setWaveformData(null);
+    }
+    
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [state.isPlaying, state.loadedFile, channelId]);
 
   // Auto-load track when assigned to channel
   React.useEffect(() => {
@@ -382,10 +452,25 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
     }
   };
 
-  const handleLoop = () => {
+  const handleLoop = async () => {
     const newLooping = !state.isLooping;
-    setState(prev => ({ ...prev, isLooping: newLooping }));
-    onLoop?.(newLooping);
+    
+    try {
+      // Update AudioService loop state
+      const { audioService } = await import('../services/AudioService');
+      audioService.setChannelLoop(channelId, newLooping);
+      
+      // Update local state
+      setState(prev => ({ ...prev, isLooping: newLooping }));
+      onLoop?.(newLooping);
+      
+      console.log(`🔄 Channel ${channelId} loop ${newLooping ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error toggling loop state:', error);
+      // Still update UI state even if AudioService fails
+      setState(prev => ({ ...prev, isLooping: newLooping }));
+      onLoop?.(newLooping);
+    }
   };
 
   const handleCue = () => {
@@ -501,23 +586,28 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
     }
   };
 
-  // Format time display
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <Card 
-      className="mixer-channel h-100"
+      className="mixer-channel"
       style={{ 
         backgroundColor: '#2a2a2a', 
         border: '1px solid #404040',
-        borderRadius: '8px'
+        borderRadius: '12px',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
       }}
     >
-      <Card.Body className="p-3">
+      <Card.Body 
+        className="p-3"
+        style={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden'
+        }}
+      >
         {/* Channel Header */}
         <Box sx={{ mb: 2 }}>
           <Typography 
@@ -532,17 +622,6 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             {label}
           </Typography>
           
-          {/* Track Info */}
-          {state.loadedFile && (
-            <Box sx={{ textAlign: 'center', mb: 1 }}>
-              <Typography variant="caption" sx={{ color: '#cccccc', display: 'block' }}>
-                BPM: {state.bpm}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#cccccc' }}>
-                {formatTime(state.position)} / {formatTime(state.duration)}
-              </Typography>
-            </Box>
-          )}
         </Box>
 
         {/* Enhanced Waveform Display with Progress Bar */}
@@ -555,6 +634,7 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             isPlaying={state.isPlaying}
             isLoading={state.isLoading}
             trackLoaded={!!state.loadedFile}
+            realTimeData={waveformData}
             bufferProgress={
               state.isLoading 
                 ? Math.min(85, Math.random() * 90) // Realistic loading progress
@@ -563,7 +643,10 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
                     : 100 // Fully buffered when not playing
                   )
             }
-            songTitle={state.loadedFile ? state.loadedFile.split('/').pop()?.replace(/\.[^/.]+$/, '') || "Unknown Track" : "No Track Loaded"}
+            songTitle={state.loadedFile ? (() => {
+              const fileName = state.loadedFile.split('/').pop()?.replace(/\.[^/.]+$/, '') || "Unknown Track";
+              return fileName.length > 25 ? fileName.slice(0, 25) + '...' : fileName;
+            })() : "No Track"}
             onSeek={handleWaveformSeek}
             onTimeUpdate={(currentTime, duration) => {
               // Optional: Handle real-time updates for enhanced features

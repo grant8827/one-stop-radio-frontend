@@ -457,12 +457,33 @@ class BackendIntegrationService {
   }
 
   /**
-   * Start microphone
+   * Start microphone with updated Node.js signaling server integration
    */
-  public async startMicrophone(): Promise<boolean> {
+  public async startMicrophone(gain: number = 70.0, deviceId?: string): Promise<boolean> {
     try {
+      // Try Node.js signaling server first (updated)
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/microphone/start');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gain, device_id: deviceId })
+        });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log('🎤 Microphone started via Node.js signaling server');
+          return data.success;
+        }
+      }
+      
+      // Fallback to C++ Media Server
       const url = getServiceUrl('MEDIA', BACKEND_CONFIG.MEDIA.ENDPOINTS.MIC_START);
-      const response = await fetch(url, { method: 'POST' });
+      const response = await fetch(url, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gain, device_id: deviceId })
+      });
       const data: ApiResponse = await response.json();
       
       return data.success;
@@ -473,10 +494,23 @@ class BackendIntegrationService {
   }
 
   /**
-   * Stop microphone
+   * Stop microphone with updated Node.js signaling server integration
    */
   public async stopMicrophone(): Promise<boolean> {
     try {
+      // Try Node.js signaling server first (updated)
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/microphone/stop');
+        const response = await fetch(url, { method: 'POST' });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log('🎤 Microphone stopped via Node.js signaling server');
+          return data.success;
+        }
+      }
+      
+      // Fallback to C++ Media Server
       const url = getServiceUrl('MEDIA', BACKEND_CONFIG.MEDIA.ENDPOINTS.MIC_STOP);
       const response = await fetch(url, { method: 'POST' });
       const data: ApiResponse = await response.json();
@@ -509,10 +543,27 @@ class BackendIntegrationService {
   }
 
   /**
-   * Set microphone gain
+   * Set microphone gain with updated Node.js signaling server integration
    */
   public async setMicrophoneGain(gain: number): Promise<boolean> {
     try {
+      // Try Node.js signaling server first (updated)
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/microphone/gain');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gain })
+        });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log(`🎤 Microphone gain set to ${gain}% via Node.js signaling server`);
+          return data.success;
+        }
+      }
+      
+      // Fallback to C++ Media Server
       const url = getServiceUrl('MEDIA', BACKEND_CONFIG.MEDIA.ENDPOINTS.MIC_SET_GAIN);
       const response = await fetch(url, {
         method: 'POST',
@@ -529,10 +580,103 @@ class BackendIntegrationService {
   }
 
   /**
-   * Control channel playback (play/pause)
+   * Enable talkover mode
+   */
+  public async enableTalkover(duckLevel: number = 25.0, fadeTime: number = 0.1): Promise<boolean> {
+    try {
+      // Try Node.js signaling server first
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/talkover/enable');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ duck_level: duckLevel, fade_time: fadeTime })
+        });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log(`🎤 Talkover enabled via Node.js signaling server (duck to ${duckLevel}%)`);
+          return data.success;
+        }
+      }
+      
+      console.warn('⚠️ Talkover not supported by C++ Media Server - using Node.js fallback only');
+      return false;
+    } catch (error) {
+      console.error('❌ Error enabling talkover:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Disable talkover mode
+   */
+  public async disableTalkover(): Promise<boolean> {
+    try {
+      // Try Node.js signaling server first
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/talkover/disable');
+        const response = await fetch(url, { method: 'POST' });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log('🎤 Talkover disabled via Node.js signaling server');
+          return data.success;
+        }
+      }
+      
+      console.warn('⚠️ Talkover not supported by C++ Media Server - using Node.js fallback only');
+      return false;
+    } catch (error) {
+      console.error('❌ Error disabling talkover:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get audio system status including microphone and talkover
+   */
+  public async getAudioSystemStatus(): Promise<any> {
+    try {
+      // Try Node.js signaling server first
+      if (await isServiceAvailable('SIGNALING')) {
+        const url = getServiceUrl('SIGNALING', '/api/audio/system/status');
+        const response = await fetch(url);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('🎛️ Audio system status retrieved from Node.js signaling server');
+          return data.audio_system || null;
+        }
+      }
+      
+      console.warn('⚠️ Audio system status not available from backends');
+      return null;
+    } catch (error) {
+      console.error('❌ Error getting audio system status:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Control channel playback (play/pause) with Node.js signaling server integration
    */
   public async setChannelPlayback(channelId: string, play: boolean): Promise<boolean> {
     try {
+      // Try Node.js signaling server first (updated)
+      if (await isServiceAvailable('SIGNALING')) {
+        const action = play ? 'play' : 'stop';
+        const url = getServiceUrl('SIGNALING', `/api/audio/channel/${channelId}/${action}`);
+        const response = await fetch(url, { method: 'POST' });
+        
+        if (response.ok) {
+          const data: ApiResponse = await response.json();
+          console.log(`▶️ Channel ${channelId} ${play ? 'started' : 'stopped'} via Node.js signaling server`);
+          return data.success;
+        }
+      }
+      
+      // Fallback to C++ Media Server
       const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/playback`);
       const response = await fetch(url, {
         method: 'POST',

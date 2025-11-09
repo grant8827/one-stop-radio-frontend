@@ -16,6 +16,9 @@ export interface AudioChannel {
   isPlaying: boolean;
   audioBuffer: AudioBuffer | null;
   bufferSource: AudioBufferSourceNode | null;
+  startTime: number; // When playback started (audioContext.currentTime)
+  pausedAt: number; // Position when paused (in seconds)
+  isLooping: boolean; // Whether track should loop
 }
 
 export interface StreamingConfig {
@@ -289,7 +292,10 @@ class AudioService {
         analyser,
         isPlaying: false,
         audioBuffer: null,
-        bufferSource: null
+        bufferSource: null,
+        startTime: 0,
+        pausedAt: 0,
+        isLooping: false
       };
 
       this.channels.set(channelId, channel);
@@ -309,7 +315,7 @@ class AudioService {
     artist?: string; 
     duration?: number; 
     loadMethod?: 'double_click' | 'drag_drop' | 'button' | 'unknown' 
-  }): Promise<boolean> {
+  }): Promise<{ success: boolean; duration?: number }> {
     const trackTitle = trackInfo?.title || file.name;
     const loadMethod = trackInfo?.loadMethod || 'unknown';
     
@@ -344,7 +350,7 @@ class AudioService {
         if (result.success) {
           console.log(`✅ Audio file loaded into C++ backend channel ${channelId}`);
           this.backendAvailable = true;
-          return true;
+          return { success: true, duration: result.duration || trackInfo?.duration };
         } else {
           console.warn(`⚠️ C++ backend failed: ${result.message}`);
           console.log('📱 Falling back to Web Audio API...');
@@ -360,7 +366,7 @@ class AudioService {
     const initialized = await this.ensureInitialized();
     if (!initialized) {
       console.error('❌ Failed to initialize Web Audio API');
-      return false;
+      return { success: false };
     }
 
     let channel = this.channels.get(channelId);
@@ -369,14 +375,14 @@ class AudioService {
       const newChannel = this.createChannel(channelId);
       if (!newChannel) {
         console.error(`❌ Failed to create channel ${channelId}`);
-        return false;
+        return { success: false };
       }
       channel = newChannel;
     }
 
     if (!this.audioContext) {
       console.error('❌ AudioContext not available');
-      return false;
+      return { success: false };
     }
 
     try {
@@ -384,11 +390,12 @@ class AudioService {
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
       channel.audioBuffer = audioBuffer;
       
-      console.log(`✅ Audio loaded into Web Audio channel ${channelId}: ${file.name}`);
-      return true;
+      const actualDuration = audioBuffer.duration;
+      console.log(`✅ Audio loaded into Web Audio channel ${channelId}: ${file.name} (Duration: ${actualDuration.toFixed(2)}s)`);
+      return { success: true, duration: actualDuration };
     } catch (error) {
       console.error(`❌ Failed to load audio into channel ${channelId}:`, error);
-      return false;
+      return { success: false };
     }
   }
 
@@ -522,8 +529,18 @@ class AudioService {
     console.log(`🎵 Toggling playback for channel ${channelId}, currently: ${channel.isPlaying ? 'playing' : 'stopped'}`);
 
     if (channel.isPlaying) {
-      // Stop playback
+      // Pause playback and save position
       if (channel.bufferSource) {
+        // Calculate current position
+        const currentTime = this.audioContext.currentTime;
+        const elapsed = currentTime - channel.startTime;
+        channel.pausedAt = elapsed;
+        
+        // Ensure position doesn't exceed track duration
+        if (channel.audioBuffer) {
+          channel.pausedAt = Math.min(channel.pausedAt, channel.audioBuffer.duration);
+        }
+        
         try {
           channel.bufferSource.stop();
         } catch (error) {
@@ -532,7 +549,7 @@ class AudioService {
         channel.bufferSource = null;
       }
       channel.isPlaying = false;
-      console.log(`⏸️ Stopped channel ${channelId}`);
+      console.log(`⏸️ Paused channel ${channelId} at ${channel.pausedAt.toFixed(2)}s`);
     } else {
       // Start playback
       if (channel.audioBuffer) {
@@ -542,14 +559,35 @@ class AudioService {
           // Ensure we create buffer source from the same context
           channel.bufferSource = this.audioContext.createBufferSource();
           channel.bufferSource.buffer = channel.audioBuffer;
-          channel.bufferSource.loop = true;
           
-          // Add error handling for playback
-          channel.bufferSource.onended = () => {
-            console.log(`🔚 Channel ${channelId} playback ended`);
-            channel.isPlaying = false;
-            channel.bufferSource = null;
-          };
+          // Determine start position and loop behavior
+          let startOffset = channel.pausedAt;
+          const trackDuration = channel.audioBuffer.duration;
+          
+          // Handle track completion for non-looping tracks
+          if (startOffset >= trackDuration && !channel.isLooping) {
+            // Track finished and not looping - reset to beginning
+            startOffset = 0;
+            channel.pausedAt = 0;
+          } else if (startOffset >= trackDuration && channel.isLooping) {
+            // Loop back to beginning
+            startOffset = 0;
+            channel.pausedAt = 0;
+          }
+          
+          // Set loop property
+          channel.bufferSource.loop = channel.isLooping;
+          
+          // Handle track ending (only for non-looped playback)
+          if (!channel.isLooping) {
+            channel.bufferSource.onended = () => {
+              console.log(`🔚 Channel ${channelId} playback ended`);
+              channel.isPlaying = false;
+              channel.bufferSource = null;
+              channel.pausedAt = 0; // Reset position for next play
+              channel.startTime = 0;
+            };
+          }
           
           // Verify connection before attempting
           if (!channel.gainNode) {
@@ -558,10 +596,23 @@ class AudioService {
           }
           
           channel.bufferSource.connect(channel.gainNode);
-          channel.bufferSource.start();
+          
+          // Start playback
+          if (channel.isLooping) {
+            // For looping tracks, start normally with loop enabled
+            channel.bufferSource.start(0, startOffset);
+          } else {
+            // For non-looping tracks, limit duration to prevent overlap
+            const remainingDuration = trackDuration - startOffset;
+            channel.bufferSource.start(0, startOffset, remainingDuration);
+          }
+          
+          channel.startTime = this.audioContext.currentTime - startOffset;
           channel.isPlaying = true;
           
-          console.log(`✅ Channel ${channelId} playback started, context state: ${this.audioContext.state}`);
+          const action = startOffset > 0 ? 'Resumed' : 'Started';
+          const loopStatus = channel.isLooping ? ' (looping)' : '';
+          console.log(`✅ ${action} channel ${channelId} at ${startOffset.toFixed(2)}s${loopStatus}, context: ${this.audioContext.state}`);
         } catch (error) {
           console.error(`❌ Error starting playback for channel ${channelId}:`, error);
           channel.bufferSource = null;
@@ -573,6 +624,96 @@ class AudioService {
     }
 
     return channel.isPlaying;
+  }
+
+  /**
+   * Get current playback position in seconds
+   */
+  getCurrentPosition(channelId: string): number {
+    const channel = this.channels.get(channelId);
+    if (!channel || !this.audioContext) return 0;
+
+    if (channel.isPlaying && channel.startTime > 0) {
+      // Calculate current position based on audio context time
+      const currentTime = this.audioContext.currentTime;
+      const elapsed = currentTime - channel.startTime;
+      
+      // For looping tracks, calculate position within the track duration
+      if (channel.isLooping && channel.audioBuffer) {
+        return elapsed % channel.audioBuffer.duration;
+      }
+      
+      // For non-looping tracks, return total elapsed time
+      return elapsed;
+    } else {
+      // Return paused position
+      return channel.pausedAt;
+    }
+  }
+
+  /**
+   * Set loop state for a channel
+   */
+  setChannelLoop(channelId: string, isLooping: boolean): void {
+    const channel = this.channels.get(channelId);
+    if (!channel) return;
+
+    const wasLooping = channel.isLooping;
+    channel.isLooping = isLooping;
+    
+    // If currently playing and loop state changed, update the buffer source
+    if (channel.isPlaying && channel.bufferSource && wasLooping !== isLooping) {
+      channel.bufferSource.loop = isLooping;
+    }
+    
+    console.log(`🔄 Channel ${channelId} loop ${isLooping ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Get track duration for a channel
+   */
+  getTrackDuration(channelId: string): number {
+    const channel = this.channels.get(channelId);
+    return channel?.audioBuffer?.duration || 0;
+  }
+
+  /**
+   * Check if channel is looping
+   */
+  isChannelLooping(channelId: string): boolean {
+    const channel = this.channels.get(channelId);
+    return channel?.isLooping || false;
+  }
+
+  /**
+   * Seek to specific position in track
+   */
+  seekToPosition(channelId: string, position: number): void {
+    const channel = this.channels.get(channelId);
+    if (!channel || !channel.audioBuffer) return;
+
+    const duration = channel.audioBuffer.duration;
+    const clampedPosition = Math.max(0, Math.min(position, duration));
+    
+    if (channel.isPlaying) {
+      // Stop current playback
+      if (channel.bufferSource) {
+        try {
+          channel.bufferSource.stop();
+        } catch (error) {
+          console.warn(`Error stopping buffer source during seek:`, error);
+        }
+      }
+      
+      // Set new position and restart
+      channel.pausedAt = clampedPosition;
+      this.toggleChannelPlayback(channelId); // This will start from the new position
+    } else {
+      // Just update the paused position
+      channel.pausedAt = clampedPosition;
+    }
+    
+    console.log(`⏭️ Channel ${channelId} seeked to ${clampedPosition.toFixed(2)}s`);
   }
 
   /**
@@ -782,13 +923,31 @@ class AudioService {
   }
 
   /**
-   * Set microphone gain
+   * Check if microphone is currently enabled
+   */
+  isMicrophoneEnabled(): boolean {
+    return this.microphoneSource !== null;
+  }
+
+  /**
+   * Set microphone gain level
    */
   setMicrophoneGain(gain: number): void {
     if (this.microphoneGain && this.audioContext) {
-      const normalizedGain = gain / 100;
-      this.microphoneGain.gain.setValueAtTime(normalizedGain, this.audioContext.currentTime);
+      const clampedGain = Math.max(0, Math.min(gain / 100, 2)); // 0-200% gain
+      this.microphoneGain.gain.setValueAtTime(clampedGain, this.audioContext.currentTime);
+      console.log(`🎤 Microphone gain set to ${gain}% (${clampedGain.toFixed(2)})`);
     }
+  }
+
+  /**
+   * Get current microphone gain level (0-100)
+   */
+  getMicrophoneGain(): number {
+    if (this.microphoneGain) {
+      return Math.round(this.microphoneGain.gain.value * 100);
+    }
+    return 70; // Default value
   }
 
   /**
@@ -1227,7 +1386,7 @@ class AudioService {
     artist?: string; 
     duration?: number; 
     loadMethod?: 'double_click' | 'drag_drop' | 'button' | 'unknown' 
-  }): Promise<boolean> {
+  }): Promise<{ success: boolean; duration?: number }> {
     const trackTitle = trackInfo?.title || file.name;
     const loadMethod = trackInfo?.loadMethod || 'unknown';
     
@@ -1393,6 +1552,53 @@ class AudioService {
         throw error;
       }
     }
+  }
+
+  /**
+   * Get real-time frequency data for waveform visualization
+   */
+  getChannelFrequencyData(channelId: string): Float32Array | null {
+    const channel = this.channels.get(channelId);
+    if (!channel?.analyser || !channel.isPlaying) {
+      return null;
+    }
+    
+    const bufferLength = channel.analyser.frequencyBinCount;
+    const dataArray = new Float32Array(bufferLength);
+    channel.analyser.getFloatFrequencyData(dataArray);
+    
+    return dataArray;
+  }
+
+  /**
+   * Get real-time time domain data for waveform visualization
+   */
+  getChannelWaveformData(channelId: string): Float32Array | null {
+    const channel = this.channels.get(channelId);
+    if (!channel?.analyser || !channel.isPlaying) {
+      return null;
+    }
+    
+    const bufferLength = channel.analyser.fftSize;
+    const dataArray = new Float32Array(bufferLength);
+    channel.analyser.getFloatTimeDomainData(dataArray);
+    
+    return dataArray;
+  }
+
+  /**
+   * Get channel playback position and duration for progress tracking
+   */
+  getChannelProgress(channelId: string): { currentTime: number; duration: number } | null {
+    const channel = this.channels.get(channelId);
+    if (!channel?.audioBuffer) {
+      return null;
+    }
+    
+    return {
+      currentTime: 0, // This would need to be tracked during playback
+      duration: channel.audioBuffer.duration
+    };
   }
 
   /**

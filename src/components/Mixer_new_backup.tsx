@@ -27,7 +27,6 @@ interface ChannelState {
   eqMid: number;
   eqLow: number;
   gain: number;
-  bpm: number;
   position: number;
   duration: number;
   loadedFile: string | null;

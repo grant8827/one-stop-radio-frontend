@@ -21,7 +21,6 @@ interface ChannelState {
   eqMid: number;
   eqLow: number;
   gain: number;
-  bpm: number;
   position: number;
   duration: number;
   loadedFile: string | null;
@@ -133,24 +132,84 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
     };
   }, [isAnyChannelPlaying, micEnabled]);
 
+  // Initialize microphone state from AudioService
+  React.useEffect(() => {
+    const initializeMicState = async () => {
+      try {
+        const { audioService } = await import('../services/AudioService');
+        const isEnabled = audioService.isMicrophoneEnabled();
+        const currentGain = audioService.getMicrophoneGain();
+        
+        if (isEnabled) {
+          setMicEnabled(true);
+          updateMicrophone(true);
+        }
+        setMicGain(currentGain);
+        
+        console.log(`🎤 Initialized mic state - Enabled: ${isEnabled}, Gain: ${currentGain}%`);
+      } catch (error) {
+        console.warn('Could not initialize microphone state:', error);
+      }
+    };
+
+    initializeMicState();
+  }, [updateMicrophone]);
+
   // Real-time VU meter updates are now handled directly in the VUPeakMeter component
 
   const handleMicToggle = async () => {
     const newMicEnabled = !micEnabled;
-    setMicEnabled(newMicEnabled);
-    updateMicrophone(newMicEnabled); // Update global audio activity
     
     try {
       const success = await audioService.toggleMicrophone(newMicEnabled);
       if (success) {
-        console.log(`🎤 Microphone ${newMicEnabled ? 'enabled' : 'disabled'} successfully`);
+        setMicEnabled(newMicEnabled);
+        updateMicrophone(newMicEnabled); // Update global audio activity
+        
+        if (newMicEnabled) {
+          // Auto-enable talkover when microphone is turned on
+          if (!talkoverActive) {
+            console.log('🎤 Microphone enabled - Auto-activating talkover');
+            setOriginalVolume(masterVolume); // Store current volume
+            const duckedVolume = Math.round(masterVolume * 0.25);
+            setMasterVolume(duckedVolume);
+            handleMasterVolumeChange(duckedVolume);
+            setTalkoverActive(true);
+            console.log(`🎤 Talkover AUTO-ON - Volume ducked to ${duckedVolume}%`);
+          }
+          console.log(`🎤 Microphone enabled successfully`);
+        } else {
+          // Disable talkover when microphone is turned off
+          if (talkoverActive) {
+            setMasterVolume(originalVolume);
+            handleMasterVolumeChange(originalVolume);
+            setTalkoverActive(false);
+            console.log(`🎤 Microphone disabled - Talkover OFF, Volume restored to ${originalVolume}%`);
+          }
+          console.log(`🎤 Microphone disabled successfully`);
+        }
       } else {
-        console.warn(`⚠️ Failed to ${newMicEnabled ? 'enable' : 'disable'} microphone`);
-        setMicEnabled(!newMicEnabled); // Revert state on failure
+        console.warn(`⚠️ Failed to ${newMicEnabled ? 'enable' : 'disable'} microphone - Check device permissions or availability`);
+        // Show user-friendly error message
+        if (newMicEnabled) {
+          alert('Failed to access microphone. Please check that:\n1. Microphone permissions are granted\n2. Microphone device is available\n3. No other application is using the microphone');
+        }
       }
     } catch (error) {
       console.error('❌ Error toggling microphone:', error);
-      setMicEnabled(!newMicEnabled); // Revert state on error
+      
+      // Handle specific microphone permission errors
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          alert('Microphone access denied. Please allow microphone permissions in your browser settings and refresh the page.');
+        } else if (error.name === 'NotFoundError') {
+          alert('No microphone device found. Please connect a microphone and try again.');
+        } else if (error.name === 'NotReadableError') {
+          alert('Microphone is already in use by another application. Please close other apps using the microphone and try again.');
+        } else {
+          alert(`Microphone error: ${error.message}`);
+        }
+      }
     }
   };
 
@@ -160,23 +219,42 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   };
 
   const handleTalkoverToggle = () => {
-    if (!micEnabled) return; // Only allow talkover when mic is on
+    if (!micEnabled) {
+      console.warn('⚠️ Cannot toggle talkover - microphone is not enabled');
+      return; // Only allow talkover when mic is on
+    }
     
     const newTalkoverState = !talkoverActive;
     setTalkoverActive(newTalkoverState);
     
     if (newTalkoverState) {
-      // Store current volume before ducking
-      setOriginalVolume(masterVolume);
+      // Store current volume before ducking (if not already stored)
+      if (originalVolume === 0) {
+        setOriginalVolume(masterVolume);
+      }
       const duckedVolume = Math.round(masterVolume * 0.25);
       setMasterVolume(duckedVolume);
       handleMasterVolumeChange(duckedVolume);
-      console.log(`🎤 Talkover ON - Volume ducked to ${duckedVolume}%`);
+      console.log(`🎤 Talkover MANUAL ON - Volume ducked to ${duckedVolume}%`);
     } else {
       // Restore original volume
-      setMasterVolume(originalVolume);
-      handleMasterVolumeChange(originalVolume);
-      console.log(`🎤 Talkover OFF - Volume restored to ${originalVolume}%`);
+      const restoreVolume = originalVolume || 75; // Default fallback volume
+      setMasterVolume(restoreVolume);
+      handleMasterVolumeChange(restoreVolume);
+      console.log(`🎤 Talkover MANUAL OFF - Volume restored to ${restoreVolume}%`);
+    }
+  };
+
+  // Handle microphone gain changes
+  const handleMicGainChange = async (newGain: number) => {
+    setMicGain(newGain);
+    
+    try {
+      const { audioService } = await import('../services/AudioService');
+      audioService.setMicrophoneGain(newGain);
+      console.log(`🎤 Microphone gain set to ${newGain}%`);
+    } catch (error) {
+      console.error('❌ Error setting microphone gain:', error);
     }
   };
 
@@ -228,16 +306,23 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
               >
                 {micEnabled ? <MicIcon /> : <MicOffIcon />}
               </IconButton>
-              <Typography variant="body2" sx={{ color: '#ffffff' }}>
-                Microphone: {micEnabled ? 'ON' : 'OFF'}
-              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Typography variant="body2" sx={{ color: '#ffffff' }}>
+                  Microphone: {micEnabled ? 'ON' : 'OFF'}
+                </Typography>
+                {micEnabled && talkoverActive && (
+                  <Typography variant="caption" sx={{ color: '#ffeb3b', fontSize: '0.7rem' }}>
+                    Auto-Talkover Active
+                  </Typography>
+                )}
+              </Box>
               {micEnabled && (
                 <Box sx={{ minWidth: 120, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ color: '#ffffff' }}>Mic Gain: {micGain}%</Typography>
                   <Fader
                     orientation="horizontal"
                     value={micGain}
-                    onChange={(value) => setMicGain(value)}
+                    onChange={handleMicGainChange}
                     min={0}
                     max={100}
                     label=""
@@ -262,7 +347,7 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
                   fontSize: '0.8rem',
                   fontWeight: 'bold',
                   padding: '6px 12px',
-                  minWidth: '80px',
+                  minWidth: '90px',
                   '&:hover': {
                     borderColor: '#ff9800',
                     backgroundColor: talkoverActive ? '#ff9800dd' : '#ff980020'
@@ -272,8 +357,9 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
                     color: '#666666'
                   }
                 }}
+                title={!micEnabled ? 'Enable microphone first' : (talkoverActive ? 'Click to disable talkover' : 'Click to enable talkover')}
               >
-                TALKOVER
+                TALKOVER {talkoverActive ? 'ON' : 'OFF'}
               </Button>
             </Box>
             
@@ -295,9 +381,24 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
         </Col>
       </Row>
 
-      <Row className="align-items-start justify-content-center">
-        {/* Channel A */}
-        <Col xs={12} lg={4}>
+      {/* Radio Control Layout - All in One Row with Equal Heights */}
+      <Box sx={{ 
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        gap: 2,
+        alignItems: { xs: 'stretch', md: 'stretch' },
+        height: { xs: 'auto', md: '800px' }, // Fixed height for equal sizing
+        width: '100%'
+      }}>
+        
+        {/* Channel A - Left Deck */}
+        <Box sx={{ 
+          flex: { xs: '0 0 auto', md: '1 1 0' },
+          minHeight: { xs: '600px', md: '100%' },
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          borderRadius: '12px',
+          overflow: 'hidden'
+        }}>
           <MixerChannel 
             channelId="A" 
             label="Channel A"
@@ -305,272 +406,325 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
             onLoad={handleChannelALoad}
             onStateChange={handleChannelAChange}
           />
-        </Col>
+        </Box>
 
-        {/* Center Column - Master Controls */}
-        <Col xs={12} lg={4} className="mt-3 mt-lg-0">
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            p: 3,
-            border: '2px solid #ffeb3b',
-            borderRadius: '8px',
-            backgroundColor: '#2a2a2a'
+        {/* Master Controls - Center */}
+        <Box sx={{ 
+          flex: { xs: '0 0 auto', md: '0 0 320px' },
+          minHeight: { xs: '600px', md: '100%' },
+          display: 'flex', 
+          flexDirection: 'column',
+          p: 3,
+          backgroundColor: '#2a2a2a',
+          borderRadius: '12px',
+          boxShadow: '0 6px 25px rgba(255, 235, 59, 0.2), 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          border: '2px solid #ffeb3b',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(145deg, rgba(255, 235, 59, 0.05) 0%, rgba(255, 235, 59, 0.02) 50%, rgba(255, 235, 59, 0.05) 100%)',
+            borderRadius: '10px',
+            pointerEvents: 'none'
+          }
+        }}>
+          
+          <Typography variant="h5" gutterBottom sx={{ 
+            fontWeight: 'bold', 
+            color: '#ffffff',
+            textAlign: 'center',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+            position: 'relative',
+            zIndex: 1
           }}>
-            
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#ffffff' }}>
-              Master Control
-            </Typography>
+            Master Control
+          </Typography>
 
-
-
-            {/* Master VU Peak Meter - Professional Bar Style */}
+          {/* Master VU Peak Meter */}
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
             <VUPeakMeter
               leftLevel={masterLevels.left}
               rightLevel={masterLevels.right}
-              width={280}
-              height={60}
+              width={260}
+              height={50}
               orientation="horizontal"
               showPeakHold={true}
               showLabels={true}
               label="VU Peak Meter"
             />
-
-            {/* Crossfader */}
-            <Box sx={{ 
-              width: '100%', 
-              px: 2, 
-              my: 3
-            }}>
-              <Typography 
-                gutterBottom 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  color: '#ffffff' 
-                }}
-              >
-                Crossfader: {crossfader > 0 ? `B ${crossfader}%` : 
-                  crossfader < 0 ? `A ${Math.abs(crossfader)}%` : 'Center'}
-              </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: 80,
-                width: '100%'
-              }}>
-                <Box sx={{
-                  width: 220,
-                  height: 50,
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #2a2a2a 100%)',
-                  borderRadius: '25px',
-                  border: '2px solid #444',
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.5)',
-                  cursor: 'pointer'
-                }}>
-                  {/* Track groove */}
-                  <Box sx={{
-                    width: '90%',
-                    height: '8px',
-                    background: 'linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    borderRadius: '4px',
-                    border: '1px solid #333',
-                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.9)',
-                    position: 'relative'
-                  }}>
-                    {/* Center notch */}
-                    <Box sx={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '-2px',
-                      width: '2px',
-                      height: '12px',
-                      background: '#ffeb3b',
-                      transform: 'translateX(-50%)',
-                      borderRadius: '1px'
-                    }} />
-                    
-                    {/* Crossfader handle */}
-                    <Box sx={{
-                      position: 'absolute',
-                      left: `${((crossfader + 100) / 200) * 100}%`,
-                      top: '50%',
-                      width: '24px',
-                      height: '32px',
-                      background: `
-                        linear-gradient(45deg, #888 0%, #bbb 20%, #ddd 50%, #bbb 80%, #888 100%),
-                        radial-gradient(circle at 30% 30%, #ccc, #666)
-                      `,
-                      border: '2px solid #999',
-                      borderRadius: '6px',
-                      transform: 'translate(-50%, -50%)',
-                      cursor: 'grab',
-                      boxShadow: `
-                        0 2px 6px rgba(0,0,0,0.6),
-                        inset 0 1px 2px rgba(255,255,255,0.4),
-                        inset 0 -1px 2px rgba(0,0,0,0.6)
-                      `,
-                      '&:active': {
-                        cursor: 'grabbing',
-                        transform: 'translate(-50%, -50%) scale(0.98)'
-                      },
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: '4px',
-                        left: '4px',
-                        right: '4px',
-                        bottom: '4px',
-                        background: 'linear-gradient(135deg, #ddd 0%, #888 50%, #666 100%)',
-                        borderRadius: '3px'
-                      },
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        width: '2px',
-                        height: '16px',
-                        background: '#ffeb3b',
-                        transform: 'translate(-50%, -50%)',
-                        borderRadius: '1px'
-                      }
-                    }}
-                    onMouseDown={(e) => {
-                      const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-                      if (!rect) return;
-                      
-                      const handleMouseMove = (moveEvent: MouseEvent) => {
-                        const x = moveEvent.clientX - rect.left;
-                        const percentage = Math.max(0, Math.min(1, (x - 20) / (rect.width - 40)));
-                        const newValue = (percentage * 200) - 100;
-                        setCrossfader(Math.round(newValue));
-                        audioService.setCrossfader(Math.round(newValue));
-                      };
-                      
-                      const handleMouseUp = () => {
-                        document.removeEventListener('mousemove', handleMouseMove);
-                        document.removeEventListener('mouseup', handleMouseUp);
-                      };
-                      
-                      document.addEventListener('mousemove', handleMouseMove);
-                      document.addEventListener('mouseup', handleMouseUp);
-                    }}
-                    />
-                  </Box>
-                  
-                  {/* A and B labels */}
-                  <Box sx={{
-                    position: 'absolute',
-                    left: '10px',
-                    color: '#ffeb3b',
-                    fontWeight: 'bold',
-                    fontSize: '12px'
-                  }}>A</Box>
-                  <Box sx={{
-                    position: 'absolute',
-                    right: '10px',
-                    color: '#ffeb3b',
-                    fontWeight: 'bold',
-                    fontSize: '12px'
-                  }}>B</Box>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Master EQ */}
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#ffffff' }}>
-              Master EQ
-            </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%', mb: 3 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Knob 
-                  label="Bass" 
-                  value={masterBass}
-                  onChange={setMasterBass}
-                  color="red"
-                  size={60}
-                />
-                <Typography variant="caption">{masterBass}</Typography>
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Knob 
-                  label="Mid" 
-                  value={masterMid}
-                  onChange={setMasterMid}
-                  color="orange"
-                  size={60}
-                />
-                <Typography variant="caption">{masterMid}</Typography>
-              </Box>
-              <Box sx={{ textAlign: 'center' }}>
-                <Knob 
-                  label="Treble" 
-                  value={masterTreble}
-                  onChange={setMasterTreble}
-                  color="blue"
-                  size={60}
-                />
-                <Typography variant="caption">{masterTreble}</Typography>
-              </Box>
-            </Box>
-
-            {/* Master Volume */}
-            <Box sx={{ width: '100%', px: 2 }}>
-              <Typography 
-                gutterBottom 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  color: '#ffffff' 
-                }}
-              >
-                Master Volume: {masterVolume}%
-              </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center',
-                height: 160,
-                alignItems: 'center'
-              }}>
-                <Fader
-                  orientation="vertical"
-                  value={masterVolume}
-                  onChange={(value) => handleMasterVolumeChange(value)}
-                  min={0}
-                  max={100}
-                  label="MASTER"
-                  width={40}
-                  height={120}
-                  color="yellow"
-                />
-              </Box>
-              
-              {/* Volume Level Indicator */}
-              <Box sx={{ textAlign: 'center', mt: 1 }}>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: '#ffeb3b',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {masterVolume}%
-                </Typography>
-              </Box>
-            </Box>
-
           </Box>
-        </Col>
 
-        {/* Channel B */}
-        <Col xs={12} lg={4} className="mt-3 mt-lg-0">
+          {/* Crossfader */}
+          <Box sx={{ 
+            width: '100%', 
+            px: 1, 
+            mb: 3,
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <Typography 
+              gutterBottom 
+              align="center" 
+              sx={{ 
+                fontWeight: 'bold', 
+                color: '#ffffff',
+                fontSize: '0.9rem'
+              }}
+            >
+              Crossfader: {crossfader > 0 ? `B ${crossfader}%` : 
+                crossfader < 0 ? `A ${Math.abs(crossfader)}%` : 'Center'}
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: 60,
+              width: '100%'
+            }}>
+              <Box sx={{
+                width: 200,
+                height: 45,
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #2a2a2a 100%)',
+                borderRadius: '25px',
+                border: '2px solid #444',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.5)',
+                cursor: 'pointer'
+              }}>
+                {/* Track groove */}
+                <Box sx={{
+                  width: '90%',
+                  height: '6px',
+                  background: 'linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                  borderRadius: '3px',
+                  border: '1px solid #333',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.9)',
+                  position: 'relative'
+                }}>
+                  {/* Center notch */}
+                  <Box sx={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '-1px',
+                    width: '2px',
+                    height: '8px',
+                    background: '#ffeb3b',
+                    transform: 'translateX(-50%)',
+                    borderRadius: '1px'
+                  }} />
+                  
+                  {/* Crossfader handle */}
+                  <Box sx={{
+                    position: 'absolute',
+                    left: `${((crossfader + 100) / 200) * 100}%`,
+                    top: '50%',
+                    width: '20px',
+                    height: '28px',
+                    background: `
+                      linear-gradient(45deg, #888 0%, #bbb 20%, #ddd 50%, #bbb 80%, #888 100%),
+                      radial-gradient(circle at 30% 30%, #ccc, #666)
+                    `,
+                    border: '2px solid #999',
+                    borderRadius: '6px',
+                    transform: 'translate(-50%, -50%)',
+                    cursor: 'grab',
+                    boxShadow: `
+                      0 2px 6px rgba(0,0,0,0.6),
+                      inset 0 1px 2px rgba(255,255,255,0.4),
+                      inset 0 -1px 2px rgba(0,0,0,0.6)
+                    `,
+                    '&:active': {
+                      cursor: 'grabbing',
+                      transform: 'translate(-50%, -50%) scale(0.98)'
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: '3px',
+                      left: '3px',
+                      right: '3px',
+                      bottom: '3px',
+                      background: 'linear-gradient(135deg, #ddd 0%, #888 50%, #666 100%)',
+                      borderRadius: '2px'
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      width: '2px',
+                      height: '14px',
+                      background: '#ffeb3b',
+                      transform: 'translate(-50%, -50%)',
+                      borderRadius: '1px'
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+                    if (!rect) return;
+                    
+                    const handleMouseMove = (moveEvent: MouseEvent) => {
+                      const x = moveEvent.clientX - rect.left;
+                      const percentage = Math.max(0, Math.min(1, (x - 20) / (rect.width - 40)));
+                      const newValue = (percentage * 200) - 100;
+                      setCrossfader(Math.round(newValue));
+                      audioService.setCrossfader(Math.round(newValue));
+                    };
+                    
+                    const handleMouseUp = () => {
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+                    
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }}
+                  />
+                </Box>
+                
+                {/* A and B labels */}
+                <Box sx={{
+                  position: 'absolute',
+                  left: '8px',
+                  color: '#ffeb3b',
+                  fontWeight: 'bold',
+                  fontSize: '10px'
+                }}>A</Box>
+                <Box sx={{
+                  position: 'absolute',
+                  right: '8px',
+                  color: '#ffeb3b',
+                  fontWeight: 'bold',
+                  fontSize: '10px'
+                }}>B</Box>
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Master EQ */}
+          <Typography variant="h6" gutterBottom sx={{ 
+            fontWeight: 'bold', 
+            color: '#ffffff', 
+            textAlign: 'center',
+            fontSize: '1.1rem',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            Master EQ
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-around', 
+            width: '100%', 
+            mb: 3,
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Knob 
+                label="Bass" 
+                value={masterBass}
+                onChange={setMasterBass}
+                color="red"
+                size={50}
+              />
+              <Typography variant="caption" sx={{ color: '#ffffff' }}>{masterBass}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Knob 
+                label="Mid" 
+                value={masterMid}
+                onChange={setMasterMid}
+                color="orange"
+                size={50}
+              />
+              <Typography variant="caption" sx={{ color: '#ffffff' }}>{masterMid}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Knob 
+                label="Treble" 
+                value={masterTreble}
+                onChange={setMasterTreble}
+                color="blue"
+                size={50}
+              />
+              <Typography variant="caption" sx={{ color: '#ffffff' }}>{masterTreble}</Typography>
+            </Box>
+          </Box>
+
+          {/* Master Volume */}
+          <Box sx={{ 
+            width: '100%', 
+            px: 1, 
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <Typography 
+              gutterBottom 
+              align="center" 
+              sx={{ 
+                fontWeight: 'bold', 
+                color: '#ffffff',
+                fontSize: '1rem'
+              }}
+            >
+              Master Volume: {masterVolume}%
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center',
+              flexGrow: 1,
+              alignItems: 'center',
+              minHeight: 120
+            }}>
+              <Fader
+                orientation="vertical"
+                value={masterVolume}
+                onChange={(value) => handleMasterVolumeChange(value)}
+                min={0}
+                max={100}
+                label="MASTER"
+                width={35}
+                height={100}
+                color="yellow"
+              />
+            </Box>
+            
+            {/* Volume Level Indicator */}
+            <Box sx={{ textAlign: 'center', mt: 1 }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: '#ffeb3b',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem'
+                }}
+              >
+                {masterVolume}%
+              </Typography>
+            </Box>
+          </Box>
+
+        </Box>
+
+        {/* Channel B - Right Deck */}
+        <Box sx={{ 
+          flex: { xs: '0 0 auto', md: '1 1 0' },
+          minHeight: { xs: '600px', md: '100%' },
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          borderRadius: '12px',
+          overflow: 'hidden'
+        }}>
           <MixerChannel 
             channelId="B" 
             label="Channel B"
@@ -578,8 +732,9 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
             onLoad={handleChannelBLoad}
             onStateChange={handleChannelBChange}
           />
-        </Col>
-      </Row>
+        </Box>
+
+      </Box>
     </Container>
   );
 }
