@@ -18,10 +18,11 @@ export interface BackendServiceConfig {
 export const BACKEND_CONFIG = {
   // Node.js Signaling Service (Real-time coordination & streaming management)
   SIGNALING: {
-    HTTP_PORT: 5001,
+    NAME: 'Python Signaling Service (HTTP Fallback)',
+    HTTP_PORT: 5002,
     WS_PORT: 5001,
-    BASE_URL: process.env.REACT_APP_SIGNALING_URL || 'http://localhost:5001',
-    WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:5001',
+    BASE_URL: process.env.REACT_APP_NODE_API_URL || 'http://localhost:5002',
+    WS_URL: process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:5001',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',
@@ -67,44 +68,29 @@ export const BACKEND_CONFIG = {
 
   // Python FastAPI Service (Authentication & Data Management)
   API: {
-    PORT: 8002,
-    BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8002',
-    PREFIX: '/api',
+    NAME: 'Python FastAPI Service',
+    PORT: 8001,
+    BASE_URL: process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8001',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',
       
-      // Authentication
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
-      REFRESH: '/auth/refresh',
-      LOGOUT: '/auth/logout',
-      PROFILE: '/auth/profile',
-      
       // Station management
-      STATIONS: '/stations',
-      STATION_ME: '/stations/me',
-      STATION_LOGO: '/stations/me/logo',
-      STATION_COVER: '/stations/me/cover',
+      STATIONS_ME: '/api/v1/stations/me',
+      STATIONS_UPDATE: '/api/v1/stations/me',
       
-      // Stream sessions
-      SESSIONS_LIST: '/stations/me/sessions',
-      SESSION_CREATE: '/stations/me/sessions',
-      SESSION_END: '/stations/me/sessions/{id}/end',
-      
-      // Social media integration
-      SOCIAL_CONNECT: '/social/connect',
-      SOCIAL_KEYS: '/social/keys'
+      // Stream history
+      STREAMS_HISTORY: '/api/v1/streams/history'
     }
   },
 
   // C++ Media Server (Audio/Video Processing & Streaming Engine)
   MEDIA: {
-    HTTP_PORT: 8082,
-    WEBRTC_PORT: 8082,
+    HTTP_PORT: 8080,
+    WEBRTC_PORT: 8081,
     RTMP_PORT: 1935,
-    BASE_URL: process.env.REACT_APP_AUDIO_URL || 'http://localhost:8082',
-    WEBRTC_URL: process.env.REACT_APP_AUDIO_WS_URL || 'ws://localhost:8082',
+    BASE_URL: process.env.REACT_APP_CPP_MEDIA_URL || 'http://localhost:8080',
+    WEBRTC_URL: process.env.REACT_APP_CPP_WEBRTC_URL || 'ws://localhost:8081',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',

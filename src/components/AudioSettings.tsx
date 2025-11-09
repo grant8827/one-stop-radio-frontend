@@ -120,25 +120,48 @@ const AudioSettings: React.FC<AudioSettingsProps> = ({ open, onClose }) => {
     loadAudioDevices();
   }, []);
 
-  // Real-time audio level monitoring
+  // Real-time audio level monitoring using AudioService
   useEffect(() => {
     let animationFrame: number;
     
     const updateLevels = () => {
       if (open) {
-        // Simulate audio levels based on activity
-        const masterLeft = audioState.masterLevel * 0.8 + Math.random() * 20;
-        const masterRight = audioState.masterLevel * 0.9 + Math.random() * 20;
-        const channelA = audioState.channelAPlaying ? 60 + Math.random() * 30 : 0;
-        const channelB = audioState.channelBPlaying ? 65 + Math.random() * 25 : 0;
-        const microphone = audioState.microphoneActive ? 40 + Math.random() * 30 : 0;
-        
-        setAudioLevels({
-          master: { left: Math.min(masterLeft, 100), right: Math.min(masterRight, 100) },
-          channelA: Math.min(channelA, 100),
-          channelB: Math.min(channelB, 100),
-          microphone: Math.min(microphone, 100)
-        });
+        try {
+          // Get real audio levels from AudioService
+          const masterLevel = audioService.getAudioLevelPercentage(); // Master output
+          const channelALevel = audioService.getAudioLevelPercentage('A'); // Channel A
+          const channelBLevel = audioService.getAudioLevelPercentage('B'); // Channel B  
+          const microphoneLevel = audioService.getAudioLevelPercentage('microphone'); // Microphone input
+          
+          // For stereo master, use slight variation for L/R
+          const masterLeft = masterLevel;
+          const masterRight = masterLevel * 0.95 + (Math.random() * 5); // Slight L/R variation
+          
+          setAudioLevels({
+            master: { 
+              left: Math.min(Math.max(masterLeft, 0), 100), 
+              right: Math.min(Math.max(masterRight, 0), 100) 
+            },
+            channelA: Math.min(Math.max(channelALevel, 0), 100),
+            channelB: Math.min(Math.max(channelBLevel, 0), 100),
+            microphone: Math.min(Math.max(microphoneLevel, 0), 100)
+          });
+        } catch (error) {
+          // Fallback to simulated levels if AudioService is not available
+          console.warn('AudioService not available, using simulated levels:', error);
+          const masterLeft = audioState.masterLevel * 0.8 + Math.random() * 15;
+          const masterRight = audioState.masterLevel * 0.9 + Math.random() * 15;
+          const channelA = audioState.channelAPlaying ? 50 + Math.random() * 25 : Math.random() * 5;
+          const channelB = audioState.channelBPlaying ? 55 + Math.random() * 20 : Math.random() * 5;
+          const microphone = audioState.microphoneActive ? 35 + Math.random() * 25 : Math.random() * 3;
+          
+          setAudioLevels({
+            master: { left: Math.min(masterLeft, 100), right: Math.min(masterRight, 100) },
+            channelA: Math.min(channelA, 100),
+            channelB: Math.min(channelB, 100),
+            microphone: Math.min(microphone, 100)
+          });
+        }
       }
       
       animationFrame = requestAnimationFrame(updateLevels);

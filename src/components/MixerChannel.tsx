@@ -545,18 +545,32 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
           )}
         </Box>
 
-        {/* Waveform Display */}
+        {/* Enhanced Waveform Display with Progress Bar */}
         <Box sx={{ mb: 2 }}>
           <Waveform 
-            height={40}
+            height={50}
             progress={state.duration > 0 ? (state.position / state.duration) * 100 : 0}
-            songDuration={state.duration}
+            songDuration={state.duration || 180}
             currentTime={state.position}
             isPlaying={state.isPlaying}
             isLoading={state.isLoading}
             trackLoaded={!!state.loadedFile}
-            songTitle={state.loadedFile || "No Track Loaded"}
+            bufferProgress={
+              state.isLoading 
+                ? Math.min(85, Math.random() * 90) // Realistic loading progress
+                : (state.isPlaying 
+                    ? Math.min(100, ((state.position || 0) / (state.duration || 1)) * 100 + 20) // Buffer ahead while playing
+                    : 100 // Fully buffered when not playing
+                  )
+            }
+            songTitle={state.loadedFile ? state.loadedFile.split('/').pop()?.replace(/\.[^/.]+$/, '') || "Unknown Track" : "No Track Loaded"}
             onSeek={handleWaveformSeek}
+            onTimeUpdate={(currentTime, duration) => {
+              // Optional: Handle real-time updates for enhanced features
+              if (state.isPlaying) {
+                console.log(`Channel ${channelId} playback: ${currentTime.toFixed(1)}s / ${duration}s`);
+              }
+            }}
           />
         </Box>
 

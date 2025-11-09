@@ -1,60 +1,109 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Box, Typography, keyframes } from '@mui/material';
+
+// CSS Animation for loading pulse effect
+const pulseAnimation = keyframes`
+  0% {
+    opacity: 0.6;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1.05);
+  }
+`;
+
+// Smooth progress bar animation
+const progressGlow = keyframes`
+  0% {
+    box-shadow: 0 0 8px rgba(255, 235, 59, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 235, 59, 0.9), 0 0 25px rgba(255, 193, 7, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(255, 235, 59, 0.7);
+  }
+`;
 
 interface WaveformProps {
   height?: number;
   progress?: number; // Manual progress override (0-100)
   isPlaying?: boolean;
   trackLoaded?: boolean;
-  isLoading?: boolean; // New prop to indicate loading state
+  isLoading?: boolean;
+  bufferProgress?: number; // Buffer progress (0-100)
   songDuration?: number; // Song duration in seconds
   currentTime?: number; // Current playback time in seconds
   songTitle?: string;
   onSeek?: (percentage: number) => void; // Callback for seeking
+  onTimeUpdate?: (currentTime: number, duration: number) => void; // Real-time updates
 }
 
-// Realistic waveform data that represents a typical song structure
-const generateWaveformData = (bars: number = 200): number[] => {
+// Enhanced realistic waveform generation with more musical patterns
+const generateWaveformData = (bars: number = 300): number[] => {
   const waveData: number[] = [];
+  const seed = Math.random(); // Consistent randomness for this track
   
   for (let i = 0; i < bars; i++) {
     const position = i / bars;
     
-    // Create realistic song structure
-    let amplitude = 0.1; // Base silence level
+    // Create realistic song structure with multiple layers
+    let amplitude = 0.08; // Base noise floor
     
-    // Intro (0-10%)
-    if (position < 0.1) {
-      amplitude = 0.3 + (position / 0.1) * 0.4; // Gradual build
-    }
-    // Verse (10-25%)
-    else if (position < 0.25) {
-      amplitude = 0.5 + Math.sin(position * 20) * 0.15; // Rhythmic pattern
-    }
-    // Chorus (25-40%)
-    else if (position < 0.4) {
-      amplitude = 0.8 + Math.sin(position * 30) * 0.2; // Higher energy
-    }
-    // Verse 2 (40-55%)
-    else if (position < 0.55) {
-      amplitude = 0.6 + Math.sin(position * 25) * 0.2;
-    }
-    // Bridge (55-70%)
-    else if (position < 0.7) {
-      amplitude = 0.4 + Math.sin(position * 15) * 0.25; // Varied pattern
-    }
-    // Final Chorus (70-90%)
-    else if (position < 0.9) {
-      amplitude = 0.9 + Math.sin(position * 35) * 0.1; // Peak energy
-    }
-    // Outro (90-100%)
-    else {
-      amplitude = 0.7 * (1 - ((position - 0.9) / 0.1)); // Fade out
+    // Musical structure simulation
+    const kickPattern = Math.sin(position * bars * 0.25) * 0.3; // Kick drum pattern
+    const snarePattern = Math.sin(position * bars * 0.5 + Math.PI) * 0.2; // Snare pattern
+    const hihatPattern = Math.sin(position * bars * 2) * 0.1; // Hi-hat pattern
+    const bassline = Math.sin(position * bars * 0.125 + seed * 2 * Math.PI) * 0.25; // Bassline
+    
+    // Song sections with dynamic energy
+    if (position < 0.08) {
+      // Intro - gradual build
+      amplitude = 0.2 + (position / 0.08) * 0.3;
+      amplitude += kickPattern * 0.3;
+    } else if (position < 0.22) {
+      // Verse 1 - moderate energy
+      amplitude = 0.45 + Math.sin(position * 32) * 0.15;
+      amplitude += (kickPattern + snarePattern + bassline) * 0.4;
+    } else if (position < 0.36) {
+      // Pre-Chorus - building energy
+      amplitude = 0.6 + Math.sin(position * 48) * 0.2;
+      amplitude += (kickPattern + snarePattern + hihatPattern + bassline) * 0.5;
+    } else if (position < 0.52) {
+      // Chorus - high energy
+      amplitude = 0.8 + Math.sin(position * 64) * 0.15;
+      amplitude += (kickPattern + snarePattern + hihatPattern + bassline) * 0.6;
+    } else if (position < 0.66) {
+      // Verse 2 - similar to verse 1 but slightly more intense
+      amplitude = 0.5 + Math.sin(position * 40) * 0.18;
+      amplitude += (kickPattern + snarePattern + bassline) * 0.45;
+    } else if (position < 0.74) {
+      // Bridge - breakdown section
+      amplitude = 0.35 + Math.sin(position * 16) * 0.25;
+      amplitude += bassline * 0.4 + hihatPattern * 0.3;
+    } else if (position < 0.92) {
+      // Final Chorus - peak energy
+      amplitude = 0.9 + Math.sin(position * 72) * 0.1;
+      amplitude += (kickPattern + snarePattern + hihatPattern + bassline) * 0.7;
+    } else {
+      // Outro - fadeout
+      const fadeAmount = 1 - ((position - 0.92) / 0.08);
+      amplitude = 0.6 * fadeAmount;
+      amplitude += (kickPattern + bassline) * 0.3 * fadeAmount;
     }
     
-    // Add some randomness for realism
-    amplitude += (Math.random() - 0.5) * 0.1;
+    // Add realistic audio characteristics
+    const harmonics = Math.sin(position * bars * 8) * 0.05; // High frequency content
+    const subBass = Math.sin(position * bars * 0.0625) * 0.1; // Sub bass
+    amplitude += harmonics + subBass;
+    
+    // Add controlled randomness for natural variation
+    const randomFactor = (Math.sin(seed * 1000 + i * 0.1) + 1) / 2; // Pseudo-random based on seed
+    amplitude += (randomFactor - 0.5) * 0.08;
+    
+    // Ensure amplitude stays within bounds
     amplitude = Math.max(0.05, Math.min(1.0, amplitude));
     
     waveData.push(amplitude);
@@ -69,71 +118,105 @@ const Waveform: React.FC<WaveformProps> = ({
   isPlaying = false, 
   trackLoaded = false,
   isLoading = false,
+  bufferProgress = 0,
   songDuration = 180, // Default 3 minutes
   currentTime = 0,
   songTitle = "Current Track",
-  onSeek
+  onSeek,
+  onTimeUpdate
 }) => {
   
-  const [waveformData] = useState(() => generateWaveformData(150));
+  const [waveformData] = useState(() => generateWaveformData(250));
   const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [internalCurrentTime, setInternalCurrentTime] = useState(0);
   const [animationOffset, setAnimationOffset] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [startTime] = useState(Date.now());
-
-  // Calculate progress based on manual progress override or automatic timing
+  const [songLoadProgress, setSongLoadProgress] = useState(0);
+  const [realTimeBuffer, setRealTimeBuffer] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>(0);
+  const lastProgressRef = useRef<number>(0);
+  
+  // Calculate progress based on currentTime prop or manual progress override
   const calculateProgress = useCallback(() => {
     if (progress > 0) {
       // Manual progress override
       return progress;
-    } else if (isPlaying && trackLoaded) {
-      // Calculate based on elapsed time since playing started
-      const elapsed = (Date.now() - startTime) / 1000; // seconds
-      return Math.min((elapsed / songDuration) * 100, 100);
     } else if (currentTime > 0) {
-      // Use provided current time
+      // Use provided current time (most accurate)
       return Math.min((currentTime / songDuration) * 100, 100);
     }
     return 0;
-  }, [progress, isPlaying, trackLoaded, startTime, songDuration, currentTime]);
+  }, [progress, currentTime, songDuration]);
 
-  // Update progress and spectrum animation
+  // Enhanced progress and animation system with real-time buffering
   useEffect(() => {
-    let animationFrame: number;
-    
     const updateAnimation = () => {
       const newProgress = calculateProgress();
       setPlaybackProgress(newProgress);
       
-      // Animate waveform movement when playing
+      // Update internal time for smooth transitions
+      const newCurrentTime = (newProgress / 100) * songDuration;
+      setInternalCurrentTime(newCurrentTime);
+      
+      // Simulate realistic buffering ahead of playback position
       if (isPlaying && trackLoaded) {
-        setAnimationOffset(prev => (prev + 2) % 100); // Horizontal movement offset
+        const bufferAhead = Math.min(newProgress + 15 + Math.random() * 10, 100);
+        setRealTimeBuffer(bufferAhead);
       }
       
+      // Call time update callback for parent components
+      if (onTimeUpdate) {
+        onTimeUpdate(newCurrentTime, songDuration);
+      }
+      
+      // Animate waveform movement when playing - more dynamic
       if (isPlaying && trackLoaded) {
-        animationFrame = requestAnimationFrame(updateAnimation);
+        setAnimationOffset(prev => (prev + 1.2) % 360); // Smoother circular movement
+      }
+      
+      // Track progress changes for smooth transitions
+      lastProgressRef.current = newProgress;
+      
+      // Continue animation if playing
+      if (isPlaying && trackLoaded) {
+        animationFrameRef.current = requestAnimationFrame(updateAnimation);
       }
     };
     
     if (isPlaying && trackLoaded) {
+      // Start animation loop
+      if (startTimeRef.current === 0) {
+        startTimeRef.current = Date.now();
+      }
       updateAnimation();
     } else {
-      setAnimationOffset(0);
-      if (!isPlaying && progress === 0) {
-        setPlaybackProgress(0);
+      // Update progress even when not playing
+      const newProgress = calculateProgress();
+      setPlaybackProgress(newProgress);
+      setInternalCurrentTime((newProgress / 100) * songDuration);
+      
+      // Cancel animation but don't reset offset (pause behavior)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = 0;
       }
-      // Reset animation when not playing
-      if (!isPlaying) {
-        // Animation offset will stay at current position when paused
+      
+      // Reset start time when stopped
+      if (!isPlaying && progress === 0) {
+        startTimeRef.current = 0;
+        setAnimationOffset(0);
+        setRealTimeBuffer(0);
       }
     }
 
     return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = 0;
       }
     };
-  }, [isPlaying, trackLoaded, calculateProgress, progress]);
+  }, [isPlaying, trackLoaded, calculateProgress, progress, songDuration, onTimeUpdate]);
 
   // Loading animation effect
   useEffect(() => {
@@ -158,6 +241,46 @@ const Waveform: React.FC<WaveformProps> = ({
       }
     };
   }, [isLoading]);
+
+  // Song loading progress animation (simulates actual file loading)
+  useEffect(() => {
+    let songLoadAnimationFrame: number;
+    let startTime: number;
+    
+    const updateSongLoadAnimation = () => {
+      if (isLoading && !trackLoaded) {
+        if (!startTime) startTime = Date.now();
+        
+        const elapsed = Date.now() - startTime;
+        const loadDuration = 3000; // 3 seconds to simulate loading
+        const progress = Math.min((elapsed / loadDuration) * 100, 95); // Don't reach 100% until actually loaded
+        
+        setSongLoadProgress(progress);
+        
+        if (progress < 95) {
+          songLoadAnimationFrame = requestAnimationFrame(updateSongLoadAnimation);
+        }
+      } else if (trackLoaded) {
+        setSongLoadProgress(100);
+      } else {
+        setSongLoadProgress(0);
+      }
+    };
+    
+    if (isLoading && !trackLoaded) {
+      updateSongLoadAnimation();
+    } else if (trackLoaded) {
+      setSongLoadProgress(100);
+    } else if (!isLoading) {
+      setSongLoadProgress(0);
+    }
+
+    return () => {
+      if (songLoadAnimationFrame) {
+        cancelAnimationFrame(songLoadAnimationFrame);
+      }
+    };
+  }, [isLoading, trackLoaded]);
 
   // Format time display
   const formatTime = (seconds: number): string => {
@@ -195,27 +318,63 @@ const Waveform: React.FC<WaveformProps> = ({
           {isLoading ? 'Loading Track...' : trackLoaded ? songTitle : 'No Track Loaded'}
         </Typography>
         
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Typography variant="caption" sx={{ 
-            color: '#ffeb3b', 
-            fontFamily: 'monospace',
-            fontSize: '0.7rem'
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{
+            background: 'rgba(0, 0, 0, 0.6)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            border: '1px solid rgba(255, 235, 59, 0.3)'
           }}>
-            {formatTime((playbackProgress / 100) * songDuration)}
-          </Typography>
+            <Typography variant="caption" sx={{ 
+              color: isPlaying ? '#ffeb3b' : '#ffc107', 
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+            }}>
+              {formatTime(internalCurrentTime)}
+            </Typography>
+          </Box>
           <Typography variant="caption" sx={{ 
-            color: '#666',
-            fontSize: '0.7rem'
+            color: '#888',
+            fontSize: '0.7rem',
+            fontWeight: 'bold'
           }}>
             /
           </Typography>
-          <Typography variant="caption" sx={{ 
-            color: '#999', 
-            fontFamily: 'monospace',
-            fontSize: '0.7rem'
+          <Box sx={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
-            {formatTime(songDuration)}
-          </Typography>
+            <Typography variant="caption" sx={{ 
+              color: '#aaa', 
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+              textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+            }}>
+              {formatTime(songDuration)}
+            </Typography>
+          </Box>
+          
+          {/* Progress Percentage Display */}
+          <Box sx={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            padding: '1px 4px',
+            borderRadius: '3px',
+            border: '1px solid rgba(255, 235, 59, 0.2)',
+            ml: 1
+          }}>
+            <Typography variant="caption" sx={{ 
+              color: '#ffeb3b', 
+              fontFamily: 'monospace',
+              fontSize: '0.65rem',
+              opacity: 0.8
+            }}>
+              {playbackProgress.toFixed(1)}%
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
@@ -290,7 +449,46 @@ const Waveform: React.FC<WaveformProps> = ({
           }
         }}
       >
-        {/* Skeuomorphic Progress Background */}
+        {/* Dynamic Buffer Progress Background - Shows real-time buffering */}
+        {(trackLoaded || isLoading) && (bufferProgress > 0 || realTimeBuffer > 0) && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              height: '100%',
+              width: `${Math.min(Math.max(bufferProgress, realTimeBuffer), 100)}%`,
+              background: `
+                linear-gradient(180deg, 
+                  rgba(96, 125, 139, 0.15) 0%, 
+                  rgba(69, 90, 120, 0.2) 25%,
+                  rgba(55, 71, 79, 0.25) 75%,
+                  rgba(38, 50, 56, 0.2) 100%
+                )
+              `,
+              borderRadius: '8px',
+              zIndex: 0.5,
+              transition: 'width 0.5s ease',
+              boxShadow: `
+                inset 0 1px 2px rgba(96,125,139,0.3),
+                inset 0 -1px 1px rgba(0,0,0,0.2)
+              `,
+              '&::after': bufferProgress < 100 ? {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '1px',
+                height: '100%',
+                background: 'linear-gradient(180deg, rgba(96,125,139,0.6), rgba(55,71,79,0.4))',
+                borderRadius: '0 8px 8px 0',
+                boxShadow: '0.5px 0 2px rgba(96,125,139,0.5)'
+              } : {}
+            }}
+          />
+        )}
+
+        {/* Playback Progress Background - Shows current playback position */}
         {trackLoaded && (
           <Box
             sx={{
@@ -329,73 +527,177 @@ const Waveform: React.FC<WaveformProps> = ({
           />
         )}
         
-        {/* Waveform Bars with Horizontal Movement */}
+        {/* Enhanced Waveform Bars with Dynamic Animation */}
         {waveformData.map((amplitude: number, i: number) => {
-          // Create moving animation effect when playing
-          const animatedAmplitude = isPlaying && trackLoaded 
-            ? amplitude + (Math.sin((Date.now() * 0.003) + (i + animationOffset) * 0.1) * 0.05)
-            : amplitude;
+          // Enhanced animation with multiple layers
+          let animatedAmplitude = amplitude;
+          
+          if (isPlaying && trackLoaded) {
+            // Primary wave motion
+            const waveMotion = Math.sin((animationOffset * 0.02) + (i * 0.08)) * 0.04;
+            // Frequency response simulation
+            const freqResponse = Math.sin((animationOffset * 0.05) + (i * 0.12)) * 0.03;
+            // Beat detection simulation
+            const beatPulse = Math.sin(animationOffset * 0.1) * 0.02;
+            
+            animatedAmplitude += waveMotion + freqResponse + beatPulse;
+          }
           
           const finalAmplitude = Math.max(0.05, Math.min(1.0, animatedAmplitude));
           
-          // Determine if this bar is in the "played" portion
+          // Determine bar states based on position with enhanced buffering
           const barPosition = (i / waveformData.length) * 100;
           const isPlayed = barPosition <= playbackProgress;
+          const effectiveBuffer = Math.max(bufferProgress, realTimeBuffer);
+          const isBuffered = barPosition <= effectiveBuffer;
+          const isLoaded = barPosition <= songLoadProgress;
+          const isNearPlayhead = Math.abs(barPosition - playbackProgress) < 3;
+          const isInBufferZone = barPosition > playbackProgress && barPosition <= effectiveBuffer;
           
           return (
             <Box 
               key={i} 
               sx={{ 
-                height: `${finalAmplitude * 80}%`, 
+                height: `${finalAmplitude * 85}%`, 
                 flex: 1,
-                minWidth: '2px',
-                maxWidth: '4px',
+                minWidth: '1.5px',
+                maxWidth: '3px',
                 background: trackLoaded 
                   ? (isPlayed 
                       ? (isPlaying 
-                          ? `linear-gradient(180deg, 
-                              #ffeb3b 0%, 
-                              #ffc107 25%, 
-                              #ff8f00 75%, 
-                              #e65100 100%
-                            )` 
+                          ? (isNearPlayhead 
+                              ? `linear-gradient(180deg, 
+                                  #ffffff 0%, 
+                                  #00e5ff 8%, 
+                                  #1de9b6 15%, 
+                                  #ffeb3b 25%, 
+                                  #ffc107 45%, 
+                                  #ff8f00 70%, 
+                                  #e65100 100%
+                                )` 
+                              : `linear-gradient(180deg, 
+                                  #00e5ff 0%, 
+                                  #00bcd4 12%, 
+                                  #26c6da 22%, 
+                                  #ffeb3b 35%, 
+                                  #ffc107 55%, 
+                                  #ff8f00 78%, 
+                                  #e65100 100%
+                                )`
+                            ) 
                           : `linear-gradient(180deg, 
-                              #ffc107 0%, 
-                              #ff9800 50%, 
+                              #4dd0e1 0%, 
+                              #26c6da 18%, 
+                              #00acc1 35%, 
+                              #ffc107 50%, 
+                              #ff9800 75%, 
                               #f57400 100%
                             )`
                         ) 
+                      : (isInBufferZone 
+                          ? `linear-gradient(180deg, 
+                              #e1f5fe 0%, 
+                              #b3e5fc 15%, 
+                              #81d4fa 35%, 
+                              #4fc3f7 60%, 
+                              #29b6f6 85%, 
+                              #0288d1 100%
+                            )`
+                          : (isBuffered 
+                              ? `linear-gradient(180deg, 
+                                  #c8e6c9 0%, 
+                                  #a5d6a7 20%, 
+                                  #81c784 40%, 
+                                  #66bb6a 65%, 
+                                  #4caf50 85%, 
+                                  #43a047 100%
+                                )`
+                              : `linear-gradient(180deg, 
+                                  #cfd8dc 0%, 
+                                  #b0bec5 20%, 
+                                  #90a4ae 40%, 
+                                  #78909c 65%, 
+                                  #607d8b 85%, 
+                                  #546e7a 100%
+                                )`
+                            )
+                        )
+                    ) 
+                  : (isLoading && isLoaded
+                      ? `linear-gradient(180deg, 
+                          #dcedc8 0%, 
+                          #c5e1a5 18%, 
+                          #aed581 35%, 
+                          #9ccc65 55%, 
+                          #8bc34a 75%, 
+                          #7cb342 100%
+                        )`
                       : `linear-gradient(180deg, 
-                          #555 0%, 
-                          #333 50%, 
-                          #222 100%
-                        )`) 
-                  : `linear-gradient(180deg, 
-                      #666 0%, 
-                      #444 50%, 
-                      #333 100%
-                    )`,
-                mx: '0.5px',
-                borderRadius: '3px',
-                border: trackLoaded && isPlayed 
-                  ? '1px solid rgba(255,235,59,0.3)' 
-                  : '1px solid rgba(255,255,255,0.1)',
-                transition: isPlaying ? 'height 0.1s ease' : 'background 0.3s ease, height 0.2s ease',
-                zIndex: 2,
+                          #e0e0e0 0%, 
+                          #bdbdbd 20%, 
+                          #9e9e9e 40%, 
+                          #757575 65%, 
+                          #616161 85%, 
+                          #424242 100%
+                        )`
+                    ),
+                mx: '0.3px',
+                borderRadius: '2px',
+                border: trackLoaded 
+                  ? (isPlayed 
+                      ? (isNearPlayhead 
+                          ? '1px solid rgba(255,255,255,0.8)'
+                          : '1px solid rgba(0,229,255,0.5)'
+                        )
+                      : (isInBufferZone 
+                          ? '1px solid rgba(79,195,247,0.4)'
+                          : (isBuffered 
+                              ? '1px solid rgba(129,199,132,0.4)'
+                              : '1px solid rgba(207,216,220,0.2)'
+                            )
+                        )
+                    )
+                  : (isLoading && isLoaded 
+                      ? '1px solid rgba(156,204,101,0.5)'
+                      : '1px solid rgba(224,224,224,0.1)'
+                    ),
+                transition: isPlaying ? 'height 0.05s ease-out' : 'all 0.3s ease',
+                zIndex: isNearPlayhead ? 3 : 2,
                 position: 'relative',
-                opacity: trackLoaded ? (isPlayed ? 1 : 0.7) : 0.5,
-                transform: isPlaying ? `translateX(${Math.sin((i + animationOffset) * 0.02) * 1}px)` : 'none',
+                opacity: trackLoaded 
+                  ? (isPlayed 
+                      ? (isNearPlayhead ? 1 : 0.95) 
+                      : (isInBufferZone 
+                          ? 0.85 
+                          : (isBuffered ? 0.75 : 0.35)
+                        )
+                    ) 
+                  : (isLoading && isLoaded ? 0.85 : 0.25),
+                transform: isPlaying && trackLoaded 
+                  ? `translateX(${Math.sin((i + animationOffset) * 0.015) * 0.8}px) scaleY(${1 + Math.sin((animationOffset + i) * 0.1) * 0.05})`
+                  : 'none',
                 boxShadow: isPlaying && trackLoaded && isPlayed 
-                  ? `
-                    0 0 4px rgba(255, 235, 59, 0.6),
-                    inset 0 1px 2px rgba(255,255,255,0.3),
-                    inset 0 -1px 2px rgba(0,0,0,0.5)
-                  ` 
+                  ? (isNearPlayhead 
+                      ? `
+                        0 0 12px rgba(255, 255, 255, 0.8),
+                        0 0 6px rgba(255, 235, 59, 1),
+                        inset 0 2px 4px rgba(255,255,255,0.4),
+                        inset 0 -2px 4px rgba(0,0,0,0.3)
+                      `
+                      : `
+                        0 0 6px rgba(255, 235, 59, 0.7),
+                        inset 0 1px 3px rgba(255,255,255,0.3),
+                        inset 0 -1px 3px rgba(0,0,0,0.4)
+                      `
+                    )
                   : `
-                    inset 0 1px 1px rgba(255,255,255,0.15),
-                    inset 0 -1px 1px rgba(0,0,0,0.6),
-                    0 1px 2px rgba(0,0,0,0.3)
+                    inset 0 1px 2px rgba(255,255,255,0.1),
+                    inset 0 -1px 2px rgba(0,0,0,0.6),
+                    0 1px 2px rgba(0,0,0,0.2)
                   `,
+                animation: isPlaying && trackLoaded && isPlayed && isNearPlayhead 
+                  ? `${progressGlow} 0.8s ease-in-out infinite`
+                  : 'none',
                 '&::before': trackLoaded && isPlayed && finalAmplitude > 0.3 ? {
                   content: '""',
                   position: 'absolute',
@@ -445,71 +747,171 @@ const Waveform: React.FC<WaveformProps> = ({
           </>
         )}
         
-        {/* Skeuomorphic Playhead Indicator */}
+        {/* Enhanced Playhead Indicator with Smooth Animation */}
         {trackLoaded && (
+          <>
+            {/* Playhead Base Line */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: `${playbackProgress}%`,
+                top: '2%',
+                height: '96%',
+                width: '2px',
+                background: `linear-gradient(180deg, 
+                  rgba(255, 255, 255, 0.9) 0%, 
+                  rgba(255, 235, 59, 1) 10%, 
+                  rgba(255, 193, 7, 1) 50%, 
+                  rgba(255, 143, 0, 1) 90%,
+                  rgba(230, 81, 0, 0.9) 100%
+                )`,
+                zIndex: 5,
+                borderRadius: '2px',
+                transform: 'translateX(-50%)',
+                transition: isPlaying ? 'none' : 'left 0.2s ease-out',
+                boxShadow: isPlaying 
+                  ? `
+                    0 0 20px rgba(255, 235, 59, 1),
+                    0 0 10px rgba(255, 193, 7, 0.8),
+                    0 0 5px rgba(255, 143, 0, 0.6)
+                  `
+                  : `
+                    0 0 12px rgba(255, 235, 59, 0.8),
+                    0 0 6px rgba(255, 193, 7, 0.6)
+                  `
+              }}
+            />
+            
+            {/* Playhead Knob/Handle */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: `${playbackProgress}%`,
+                top: '-8px',
+                width: '16px',
+                height: '16px',
+                background: `linear-gradient(135deg, 
+                  #fff 0%, 
+                  #ffeb3b 20%, 
+                  #ffc107 40%, 
+                  #ff8f00 80%, 
+                  #e65100 100%
+                )`,
+                zIndex: 6,
+                borderRadius: '50%',
+                border: '2px solid rgba(255, 255, 255, 0.8)',
+                transform: 'translateX(-50%)',
+                transition: isPlaying ? 'none' : 'left 0.2s ease-out',
+                boxShadow: isPlaying 
+                  ? `
+                    0 0 15px rgba(255, 235, 59, 1),
+                    0 0 8px rgba(255, 193, 7, 0.8),
+                    0 2px 8px rgba(0, 0, 0, 0.3),
+                    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+                    inset 0 -2px 4px rgba(0, 0, 0, 0.3)
+                  `
+                  : `
+                    0 0 10px rgba(255, 235, 59, 0.8),
+                    0 2px 6px rgba(0, 0, 0, 0.2),
+                    inset 0 1px 3px rgba(255, 255, 255, 0.3),
+                    inset 0 -1px 3px rgba(0, 0, 0, 0.2)
+                  `,
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: '3px',
+                  left: '3px',
+                  right: '3px',
+                  height: '4px',
+                  background: 'linear-gradient(90deg, transparent 20%, rgba(255,255,255,0.8) 50%, transparent 80%)',
+                  borderRadius: '50%'
+                }
+              }}
+            />
+            
+            {/* Bottom Playhead Extension */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: `${playbackProgress}%`,
+                bottom: '-8px',
+                width: '12px',
+                height: '12px',
+                background: `linear-gradient(135deg, 
+                  #ffeb3b 0%, 
+                  #ffc107 30%, 
+                  #ff8f00 70%, 
+                  #e65100 100%
+                )`,
+                zIndex: 6,
+                borderRadius: '50%',
+                border: '1px solid rgba(255, 255, 255, 0.6)',
+                transform: 'translateX(-50%)',
+                transition: isPlaying ? 'none' : 'left 0.2s ease-out',
+                boxShadow: isPlaying 
+                  ? `
+                    0 0 10px rgba(255, 235, 59, 0.8),
+                    0 1px 4px rgba(0, 0, 0, 0.3)
+                  `
+                  : `
+                    0 0 6px rgba(255, 235, 59, 0.6),
+                    0 1px 3px rgba(0, 0, 0, 0.2)
+                  `
+              }}
+            />
+          </>
+        )}
+        
+        {/* Song Loading Progress Line - Shows actual loading progress */}
+        {isLoading && songLoadProgress > 0 && (
           <Box
             sx={{
               position: 'absolute',
-              left: `${playbackProgress}%`,
-              top: '5%',
-              height: '90%',
-              width: '4px',
-              background: isPlaying 
-                ? `linear-gradient(180deg, 
-                    #ff5722 0%, 
-                    #f4511e 25%, 
-                    #e64100 75%, 
-                    #bf360c 100%
-                  )`
-                : `linear-gradient(180deg, 
-                    #ffeb3b 0%, 
-                    #ffc107 25%, 
-                    #ff8f00 75%, 
-                    #e65100 100%
-                  )`,
-              zIndex: 4,
-              borderRadius: '4px',
-              border: '1px solid rgba(255,255,255,0.3)',
-              boxShadow: isPlaying 
-                ? `
-                  0 0 12px rgba(255, 87, 34, 0.9), 
-                  0 0 6px rgba(255, 87, 34, 1),
-                  inset 0 1px 2px rgba(255,255,255,0.4),
-                  inset 0 -1px 2px rgba(0,0,0,0.6)
-                ` 
-                : `
-                  0 0 8px rgba(255, 235, 59, 0.7),
-                  inset 0 1px 2px rgba(255,255,255,0.3),
-                  inset 0 -1px 2px rgba(0,0,0,0.5)
-                `,
-              transition: isPlaying ? 'none' : 'left 0.3s ease',
-              transform: 'translateX(-50%)',
-              '&::before': {
+              left: 0,
+              top: 0,
+              height: '100%',
+              width: `${songLoadProgress}%`,
+              background: `
+                linear-gradient(90deg, 
+                  transparent 0%,
+                  rgba(76, 175, 80, 0.1) 20%,
+                  rgba(76, 175, 80, 0.2) 50%,
+                  rgba(76, 175, 80, 0.3) 80%,
+                  rgba(76, 175, 80, 0.4) 95%,
+                  rgba(76, 175, 80, 0.5) 100%
+                )
+              `,
+              zIndex: 0.3,
+              borderRadius: '8px',
+              transition: 'width 0.3s ease',
+              '&::after': songLoadProgress < 100 ? {
                 content: '""',
                 position: 'absolute',
                 top: 0,
-                left: 0,
                 right: 0,
-                height: '3px',
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)',
-                borderRadius: '4px 4px 0 0'
-              },
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: '2px',
-                height: '20%',
-                background: 'rgba(255,255,255,0.8)',
-                transform: 'translate(-50%, -50%)',
-                borderRadius: '1px'
-              }
+                width: '4px',
+                height: '100%',
+                background: `
+                  linear-gradient(180deg, 
+                    #4caf50 0%, 
+                    #66bb6a 25%, 
+                    #81c784 75%, 
+                    #a5d6a7 100%
+                  )
+                `,
+                borderRadius: '0 8px 8px 0',
+                boxShadow: `
+                  0 0 8px rgba(76, 175, 80, 0.8),
+                  0 0 4px rgba(76, 175, 80, 1),
+                  inset 0 1px 2px rgba(255,255,255,0.3)
+                `,
+                animation: `${pulseAnimation} 1s ease-in-out infinite alternate`
+              } : {}
             }}
           />
         )}
-        
-        {/* Loading Line Animation */}
+
+        {/* Loading Line Animation - Scanning indicator */}
         {isLoading && (
           <Box
             sx={{
@@ -572,25 +974,72 @@ const Waveform: React.FC<WaveformProps> = ({
         )}
       </Box>
 
-      {/* Progress Bar (Alternative minimal view) */}
+      {/* Enhanced Progress Bar with Real-time Buffer Indication */}
       {trackLoaded && (
         <Box sx={{ 
           width: '100%', 
-          height: '2px', 
-          backgroundColor: '#333',
-          borderRadius: '1px',
+          height: '3px', 
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          borderRadius: '2px',
           mt: 1,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          position: 'relative',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
         }}>
+          {/* Real-time Buffer Progress Bar */}
+          {(bufferProgress > 0 || realTimeBuffer > 0) && (
+            <Box
+              sx={{
+                position: 'absolute',
+                height: '100%',
+                width: `${Math.min(Math.max(bufferProgress, realTimeBuffer), 100)}%`,
+                background: isPlaying 
+                  ? 'linear-gradient(90deg, #4fc3f7, #29b6f6, #0288d1)'
+                  : 'linear-gradient(90deg, #81c784, #66bb6a, #4caf50)',
+                transition: isPlaying ? 'width 0.3s ease' : 'width 0.5s ease',
+                borderRadius: '2px',
+                opacity: 0.7,
+                boxShadow: isPlaying ? '0 0 4px rgba(79,195,247,0.6)' : '0 0 3px rgba(129,199,132,0.5)'
+              }}
+            />
+          )}
+          
+          {/* Playback Progress Bar */}
           <Box
             sx={{
               height: '100%',
               width: `${playbackProgress}%`,
-              backgroundColor: isPlaying ? '#ffeb3b' : '#ffc107',
+              background: isPlaying 
+                ? 'linear-gradient(90deg, #00e5ff, #ffeb3b, #ffc107, #ff8f00)'
+                : 'linear-gradient(90deg, #00acc1, #ffc107, #ff9800)',
               transition: isPlaying ? 'none' : 'width 0.3s ease',
-              borderRadius: '1px'
+              borderRadius: '2px',
+              position: 'relative',
+              zIndex: 2,
+              boxShadow: isPlaying 
+                ? '0 0 6px rgba(255,235,59,0.8), 0 0 3px rgba(0,229,255,0.6)'
+                : '0 0 4px rgba(255,193,7,0.6)'
             }}
           />
+          
+          {/* Loading Indicator for Active Streaming */}
+          {isPlaying && trackLoaded && (
+            <Box
+              sx={{
+                position: 'absolute',
+                right: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '4px',
+                height: '4px',
+                backgroundColor: '#1de9b6',
+                borderRadius: '50%',
+                animation: `${progressGlow} 1.2s ease-in-out infinite`,
+                boxShadow: '0 0 6px #1de9b6'
+              }}
+            />
+          )}
         </Box>
       )}
     </Box>

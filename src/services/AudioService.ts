@@ -1074,9 +1074,77 @@ class AudioService {
     }
     const rms = Math.sqrt(sum / dataArray.length);
     
-    // Convert to percentage (0-100) with better scaling for microphones
-    const percentage = Math.min(100, rms * 300); // Amplify for better visibility
+    // Convert to percentage (0-100) with better scaling for music
+    const percentage = Math.min(100, rms * 400); // Enhanced amplification for better VU response
     return percentage;
+  }
+
+  /**
+   * Get real-time master levels for left and right channels
+   */
+  getMasterLevels(): { left: number; right: number } {
+    if (!this.masterAnalyser) {
+      return { left: 0, right: 0 };
+    }
+
+    // Get stereo time domain data
+    const dataArray = new Uint8Array(this.masterAnalyser.fftSize);
+    this.masterAnalyser.getByteTimeDomainData(dataArray);
+    
+    // Split into left and right channels (assume stereo interleaved)
+    const halfLength = Math.floor(dataArray.length / 2);
+    let leftSum = 0, rightSum = 0;
+    
+    for (let i = 0; i < halfLength; i++) {
+      // Left channel (even indices)
+      const leftSample = (dataArray[i * 2] - 128) / 128;
+      leftSum += leftSample * leftSample;
+      
+      // Right channel (odd indices)  
+      const rightSample = (dataArray[i * 2 + 1] - 128) / 128;
+      rightSum += rightSample * rightSample;
+    }
+    
+    const leftRms = Math.sqrt(leftSum / halfLength);
+    const rightRms = Math.sqrt(rightSum / halfLength);
+    
+    return {
+      left: Math.min(100, leftRms * 400),
+      right: Math.min(100, rightRms * 400)
+    };
+  }
+
+  /**
+   * Get real-time channel levels for individual decks
+   */
+  getChannelLevels(channelId: string): { left: number; right: number } {
+    const channel = this.channels.get(channelId);
+    if (!channel?.analyser || !channel.isPlaying) {
+      return { left: 0, right: 0 };
+    }
+
+    const dataArray = new Uint8Array(channel.analyser.fftSize);
+    channel.analyser.getByteTimeDomainData(dataArray);
+    
+    // Calculate stereo levels
+    const halfLength = Math.floor(dataArray.length / 2);
+    let leftSum = 0, rightSum = 0;
+    
+    for (let i = 0; i < halfLength; i++) {
+      const leftSample = (dataArray[i * 2] - 128) / 128;
+      leftSum += leftSample * leftSample;
+      
+      const rightSample = (dataArray[i * 2 + 1] - 128) / 128;
+      rightSum += rightSample * rightSample;
+    }
+    
+    const leftRms = Math.sqrt(leftSum / halfLength);
+    const rightRms = Math.sqrt(rightSum / halfLength);
+    
+    return {
+      left: Math.min(100, leftRms * 400),
+      right: Math.min(100, rightRms * 400)
+    };
   }
 
   /**

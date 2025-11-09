@@ -8,6 +8,7 @@ import MicOffIcon from '@mui/icons-material/MicOff';
 import Knob from './Knob';
 import Fader from './Fader';
 import MixerChannel from './MixerChannel';
+import VUPeakMeter from './VUPeakMeter';
 import { audioService } from '../services/AudioService';
 import type { Track } from './MusicPlaylist';
 
@@ -39,9 +40,7 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   const [masterMid, setMasterMid] = useState(50);
   const [masterTreble, setMasterTreble] = useState(50);
   const [micGain, setMicGain] = useState(70);
-  const [masterLevels, setMasterLevels] = useState({ left: 0, right: 0 });
   const [masterVolume, setMasterVolume] = useState(80);
-  const [animationTick, setAnimationTick] = useState(0); // Force re-renders for smooth animation
   const [talkoverActive, setTalkoverActive] = useState(false);
   const [originalVolume, setOriginalVolume] = useState(80);
 
@@ -51,6 +50,9 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   // Track channel playing states
   const [channelAState, setChannelAState] = useState<ChannelState | null>(null);
   const [channelBState, setChannelBState] = useState<ChannelState | null>(null);
+  
+  // Master audio levels for VU meter
+  const [masterLevels, setMasterLevels] = useState({ left: 0, right: 0 });
 
   // Initialize audio service on component mount
   useEffect(() => {
@@ -93,20 +95,30 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
     if (isAnyChannelPlaying || micEnabled) {
       interval = setInterval(() => {
         try {
-          // Get master audio levels from AudioService
-          let masterLevel = audioService.getAudioLevelPercentage();
+          // Get real master levels from AudioService
+          const masterLevels = audioService.getMasterLevels();
+          let leftLevel = masterLevels.left;
+          let rightLevel = masterLevels.right;
           
-          // If microphone is active, combine with mic level
-          if (micEnabled) {
-            const micLevel = audioService.getAudioLevelPercentage('microphone');
-            masterLevel = Math.max(masterLevel, micLevel);
+          // If no master audio, check individual channels
+          if (leftLevel < 5 && rightLevel < 5) {
+            const channelALevels = audioService.getChannelLevels('channelA');
+            const channelBLevels = audioService.getChannelLevels('channelB');
+            leftLevel = Math.max(channelALevels.left, channelBLevels.left);
+            rightLevel = Math.max(channelALevels.right, channelBLevels.right);
           }
           
-          // Simulate stereo levels (in real implementation, would get separate L/R)
-          const leftLevel = masterLevel;
-          const rightLevel = masterLevel * (0.9 + Math.random() * 0.2); // Slight variation
+          // Add microphone level if enabled
+          if (micEnabled) {
+            const micLevel = audioService.getAudioLevelPercentage('microphone');
+            leftLevel = Math.max(leftLevel, micLevel);
+            rightLevel = Math.max(rightLevel, micLevel);
+          }
           
-          setMasterLevels({ left: leftLevel, right: rightLevel });
+          setMasterLevels({ 
+            left: Math.min(100, leftLevel), 
+            right: Math.min(100, rightLevel) 
+          });
         } catch (error) {
           console.warn('Error getting master audio levels:', error);
           setMasterLevels({ left: 0, right: 0 });
@@ -121,27 +133,7 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
     };
   }, [isAnyChannelPlaying, micEnabled]);
 
-  // Continuous animation loop for VU meter when audio is playing
-  useEffect(() => {
-    let animationFrame: number;
-    
-    const animate = () => {
-      if (isAnyChannelPlaying || micEnabled) {
-        setAnimationTick(prev => prev + 1);
-        animationFrame = requestAnimationFrame(animate);
-      }
-    };
-    
-    if (isAnyChannelPlaying || micEnabled) {
-      animationFrame = requestAnimationFrame(animate);
-    }
-    
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-    };
-  }, [isAnyChannelPlaying, micEnabled]);
+  // Real-time VU meter updates are now handled directly in the VUPeakMeter component
 
   const handleMicToggle = async () => {
     const newMicEnabled = !micEnabled;
@@ -333,193 +325,17 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
 
 
 
-            {/* Master VU Meter - Curved Arc Style */}
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              mb: 3,
-              p: 3,
-              background: 'linear-gradient(145deg, #0a0a0a, #1a1a1a)',
-              borderRadius: '16px',
-              border: '3px solid #2a2a2a',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.8), 0 2px 8px rgba(0,0,0,0.6)'
-            }}>
-              {/* VU Meter Arc */}
-              <Box sx={{ 
-                position: 'relative', 
-                width: 240, 
-                height: 140,
-                mb: 3,
-                background: 'radial-gradient(circle at center bottom, #0f0f0f, #050505)',
-                borderRadius: '120px 120px 0 0',
-                border: '2px solid #333'
-              }}>
-                <svg width="240" height="140" viewBox="0 0 240 140">
-                  {/* LED segments - curved arc array aligned with needle */}
-                  {Array.from({ length: 19 }, (_, i) => {
-                    const angle = (i * 120 / 18) - 150; // -130 to +20 degrees to match needle sweep
-                    const radian = (angle * Math.PI) / 180;
-                    const x1 = 120 + 85 * Math.cos(radian);
-                    const y1 = 130 + 85 * Math.sin(radian);
-                    const x2 = 120 + 100 * Math.cos(radian);
-                    const y2 = 130 + 100 * Math.sin(radian);
-                    
-                    // Calculate if this LED should be lit based on real audio activity
-                    let avgLevel = 0;
-                    
-                    // Get real-time audio levels when tracks are playing
-                    if (isAnyChannelPlaying || micEnabled) {
-                      try {
-                        // Try to get actual audio levels from AudioService
-                        const audioLevel = audioService.getAudioLevelPercentage();
-                        const baseLevel = Math.max(audioLevel, Math.max(masterLevels.left || 0, masterLevels.right || 0));
-                        
-                        // Add realistic audio variation for natural movement
-                        const time = animationTick * 0.1; // Use animation tick for smooth continuous updates
-                        const musicVariation = Math.sin(time * 0.15) * 4 + Math.sin(time * 0.4) * 3; // Music-like fluctuation
-                        const randomNoise = (Math.random() - 0.5) * 2; // Small random variations
-                        
-                        // Start from 0 (far left) when playing
-                        avgLevel = Math.max(0, Math.min(100, baseLevel + musicVariation + randomNoise));
-                      } catch (error) {
-                        // Fallback to simulation if AudioService unavailable
-                        const time = animationTick * 0.1;
-                        const musicLevel = 10 + Math.sin(time * 0.2) * 8; // 2-18% range for realistic music
-                        avgLevel = Math.max(0, Math.min(100, musicLevel));
-                      }
-                    } else {
-                      // When nothing is playing, no LEDs should be lit
-                      avgLevel = 0;
-                    }
-                    
-                    const threshold = (i / 18) * 100;
-                    const isLit = avgLevel > threshold;
-                    
-                    // Base color always visible - green -> yellow -> red progression
-                    let baseColor, brightColor, glowColor;
-                    
-                    if (i <= 10) {
-                      baseColor = '#003300'; // Dark green when off
-                      brightColor = '#00ff00'; // Bright green when on
-                      glowColor = '#00ff0080';
-                    } else if (i <= 14) {
-                      baseColor = '#333300'; // Dark yellow when off
-                      brightColor = '#ffff00'; // Bright yellow when on
-                      glowColor = '#ffff0080';
-                    } else {
-                      baseColor = '#330000'; // Dark red when off
-                      brightColor = '#ff0000'; // Bright red when on
-                      glowColor = '#ff000080';
-                    }
-                    
-                    const currentColor = isLit ? brightColor : baseColor;
-                    
-                    return (
-                      <g key={i}>
-                        {/* LED glow effect when lit */}
-                        {isLit && (
-                          <line
-                            x1={x1}
-                            y1={y1}
-                            x2={x2}
-                            y2={y2}
-                            stroke={glowColor}
-                            strokeWidth="8"
-                            strokeLinecap="round"
-                            filter="blur(2px)"
-                          />
-                        )}
-                        {/* LED bar - always visible with color */}
-                        <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
-                          stroke={currentColor}
-                          strokeWidth="4"
-                          strokeLinecap="round"
-                        />
-                      </g>
-                    );
-                  })}
-                  
-                  {/* Needle - Professional analog arc style */}
-                  {(() => {
-                    // Calculate audio level for needle angle
-                    let avgLevel = 0;
-                    
-                    if (isAnyChannelPlaying || micEnabled) {
-                      try {
-                        const audioLevel = audioService.getAudioLevelPercentage();
-                        const baseLevel = Math.max(audioLevel, Math.max(masterLevels.left || 0, masterLevels.right || 0));
-                        const time = animationTick * 0.1;
-                        const variation = Math.sin(time * 0.15) * 4 + Math.sin(time * 0.4) * 3;
-                        // Start from 0 (far left) and add realistic audio levels
-                        avgLevel = Math.max(0, Math.min(100, baseLevel + variation));
-                      } catch (error) {
-                        // When playing but no real audio data, start low and animate
-                        const time = animationTick * 0.1;
-                        const musicLevel = 10 + Math.sin(time * 0.2) * 8; // 2-18% range
-                        avgLevel = Math.max(0, Math.min(100, musicLevel));
-                      }
-                    } else {
-                      // Needle at far left when silent
-                      avgLevel = 0;
-                    }
-                    
-                    // Needle angle: starts further left when avgLevel=0, sweeps to top-right when avgLevel=100
-                    const needleAngle = -150 + (avgLevel / 100) * 150; // 150° sweep from bottom-left to top-right
-                    const needleRadian = (needleAngle * Math.PI) / 180;
-                    
-                    // Center point for needle rotation
-                    const centerX = 120;
-                    const centerY = 130;
-                    
-                    // Needle length from center
-                    const needleLength = 70;
-                    
-                    // Calculate needle tip position
-                    const needleTipX = centerX + needleLength * Math.cos(needleRadian);
-                    const needleTipY = centerY + needleLength * Math.sin(needleRadian);
-                    
-                    return (
-                      <g>
-                        {/* Needle shadow */}
-                        <line
-                          x1={centerX + 1}
-                          y1={centerY + 1}
-                          x2={needleTipX + 1}
-                          y2={needleTipY + 1}
-                          stroke="#00000060"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                        />
-                        {/* Main needle */}
-                        <line
-                          x1={centerX}
-                          y1={centerY}
-                          x2={needleTipX}
-                          y2={needleTipY}
-                          stroke="#ff6600"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        {/* Center pivot */}
-                        <circle
-                          cx={centerX}
-                          cy={centerY}
-                          r="4"
-                          fill="#333"
-                          stroke="#666"
-                          strokeWidth="1"
-                        />
-                      </g>
-                    );
-                  })()}
-                </svg>
-              </Box>
-            </Box>
+            {/* Master VU Peak Meter - Professional Bar Style */}
+            <VUPeakMeter
+              leftLevel={masterLevels.left}
+              rightLevel={masterLevels.right}
+              width={280}
+              height={60}
+              orientation="horizontal"
+              showPeakHold={true}
+              showLabels={true}
+              label="VU Peak Meter"
+            />
 
             {/* Crossfader */}
             <Box sx={{ 
