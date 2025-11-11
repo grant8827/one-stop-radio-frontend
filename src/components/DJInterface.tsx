@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
 import { 
   Button, 
@@ -8,12 +8,6 @@ import {
   Chip, 
   Alert
 } from '@mui/material';
-import Mixer from './Mixer';
-import VideoPlayer from './VideoPlayer';
-import TrackChannelDiagnostics from './TrackChannelDiagnostics';
-import MusicPlaylist from './MusicPlaylist';
-import BackendStatusIndicator from './BackendStatusIndicator';
-
 import FacebookIcon from '@mui/icons-material/Facebook';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import TwitchIcon from '@mui/icons-material/Tv';
@@ -25,6 +19,13 @@ import { webSocketService } from '../services/WebSocketService';
 import { mediaServerService } from '../services/MediaServerService';
 import type { ListenerStats, StreamStatus } from '../services/WebSocketService';
 import type { SocialPlatform, StreamStats } from '../services/MediaServerService';
+
+// Lazy load heavy components for faster initial render
+const Mixer = lazy(() => import('./Mixer'));
+const VideoPlayer = lazy(() => import('./VideoPlayer'));
+const TrackChannelDiagnostics = lazy(() => import('./TrackChannelDiagnostics'));
+const MusicPlaylist = lazy(() => import('./MusicPlaylist'));
+const BackendStatusIndicator = lazy(() => import('./BackendStatusIndicator'));
 
 interface DJInterfaceState {
   isStreaming: boolean;
@@ -54,33 +55,82 @@ const DJInterface: React.FC = () => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        // Initialize WebSocket connection
-        await webSocketService.connect('station-1', 'temp-token');
+        console.log('🎵 DJInterface: Initializing services...');
         
-        // Set up listener stats updates
-        webSocketService.onListenerStats((stats) => {
-          setState(prev => ({ ...prev, listenerStats: stats }));
-        });
-
-        // Set up stream status updates
-        webSocketService.onStreamStatus((status) => {
-          setState(prev => ({ ...prev, streamStatus: status }));
-        });
-
-        // Initialize media server connection
-        await mediaServerService.connect();
+        // Set initial mock state immediately to prevent UI blocking
+        setState(prev => ({ 
+          ...prev, 
+          listenerStats: { current: 0, peak: 0, locations: [] },
+          streamStatus: { isLive: false, viewerCount: 0, quality: 'medium', bitrate: 128 },
+          streamStats: { 
+            viewers: 0, 
+            duration: 0, 
+            uptime: 0, 
+            bitrate: 128, 
+            latency: 50, 
+            cpuUsage: 0, 
+            quality: 'good', 
+            droppedFrames: 0, 
+            bandwidth: 0 
+          },
+          socialPlatforms: []
+        }));
         
-        // Set up stream stats updates
-        mediaServerService.onStreamStats((stats) => {
-          setState(prev => ({ ...prev, streamStats: stats }));
-        });
+        // Initialize WebSocket connection with ultra-fast timeout
+        setTimeout(async () => {
+          try {
+            console.log('🔌 Attempting WebSocket connection...');
+            const connected = await Promise.race([
+              webSocketService.connect('station-1', 'temp-token'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('WebSocket timeout')), 300))
+            ]);
+            
+            if (connected) {
+              console.log('✅ WebSocket connected successfully');
+              // Set up listener stats updates
+              webSocketService.onListenerStats((stats) => {
+                setState(prev => ({ ...prev, listenerStats: stats }));
+              });
 
-        // Load social platforms configuration
-        const platforms = await mediaServerService.getSocialPlatforms();
-        setState(prev => ({ ...prev, socialPlatforms: platforms }));
+              // Set up stream status updates
+              webSocketService.onStreamStatus((status) => {
+                setState(prev => ({ ...prev, streamStatus: status }));
+              });
+            }
+          } catch (wsError) {
+            console.warn('⚠️ WebSocket connection failed, continuing without real-time features:', wsError);
+          }
+        }, 50); // Minimal delay
+
+        // Initialize media server connection with ultra-fast timeout
+        setTimeout(async () => {
+          try {
+            console.log('🎛️ Attempting media server connection...');
+            const mediaConnected = await Promise.race([
+              mediaServerService.connect(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Media server timeout')), 300))
+            ]);
+            
+            if (mediaConnected) {
+              console.log('✅ Media server connected successfully');
+              // Set up stream stats updates
+              mediaServerService.onStreamStats((stats) => {
+                setState(prev => ({ ...prev, streamStats: stats }));
+              });
+
+              // Load social platforms configuration
+              const platforms = await mediaServerService.getSocialPlatforms();
+              setState(prev => ({ ...prev, socialPlatforms: platforms }));
+            }
+          } catch (mediaError) {
+            console.warn('⚠️ Media server connection failed, using mock data:', mediaError);
+          }
+        }, 100); // Minimal delay
+
+        console.log('✅ DJInterface services initialization started (non-blocking)');
 
       } catch (error) {
-        console.error('Failed to initialize services:', error);
+        console.error('❌ Failed to initialize services:', error);
       }
     };
 
@@ -88,8 +138,12 @@ const DJInterface: React.FC = () => {
 
     // Cleanup on component unmount
     return () => {
-      webSocketService.disconnect();
-      mediaServerService.disconnect();
+      try {
+        webSocketService.disconnect();
+        mediaServerService.disconnect();
+      } catch (error) {
+        console.warn('Cleanup error:', error);
+      }
     };
   }, []);
 
@@ -213,7 +267,9 @@ const DJInterface: React.FC = () => {
   return (
     <>
       {/* Backend Status Indicator */}
-      <BackendStatusIndicator />
+      <Suspense fallback={<div>Loading...</div>}>
+        <BackendStatusIndicator />
+      </Suspense>
       
       <Container fluid className="dj-interface">
       <Row className="h-100">
@@ -228,7 +284,9 @@ const DJInterface: React.FC = () => {
               borderRadius: '12px'
             }}
           >
-            <Mixer deckA={deckA} deckB={deckB} />
+            <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Mixer...</div>}>
+              <Mixer deckA={deckA} deckB={deckB} />
+            </Suspense>
           </Paper>
         </Col>
 
@@ -248,7 +306,9 @@ const DJInterface: React.FC = () => {
               <Typography variant="h6" gutterBottom sx={{ color: '#ffffff' }}>
                 Live Video Preview
               </Typography>
-              <VideoPlayer />
+              <Suspense fallback={<div style={{color: '#fff'}}>Loading Video...</div>}>
+                <VideoPlayer />
+              </Suspense>
             </Paper>
 
             {/* Stream Status */}
@@ -441,11 +501,13 @@ const DJInterface: React.FC = () => {
               overflow: 'hidden'
             }}
           >
-            <MusicPlaylist
-              onLoadToDeck={loadToDeck}
-              currentDeckA={deckA}
-              currentDeckB={deckB}
-            />
+            <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Playlist...</div>}>
+              <MusicPlaylist
+                onLoadToDeck={loadToDeck}
+                currentDeckA={deckA}
+                currentDeckB={deckB}
+              />
+            </Suspense>
           </Paper>
         </Col>
       </Row>
@@ -454,7 +516,9 @@ const DJInterface: React.FC = () => {
       {showDiagnostics && (
         <Row className="mt-3">
           <Col xs={12}>
-            <TrackChannelDiagnostics />
+            <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Diagnostics...</div>}>
+              <TrackChannelDiagnostics />
+            </Suspense>
           </Col>
         </Row>
       )}

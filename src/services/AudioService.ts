@@ -65,13 +65,27 @@ class AudioService {
   async initialize(): Promise<boolean> {
     console.log('🎵 AudioService: Starting initialization...');
     
-    // First check if C++ backend is available
-    await this.checkBackendAvailability();
+    // Check if already initialized
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      console.log('✅ AudioService already initialized');
+      return true;
+    }
+    
+    // First check if C++ backend is available (with timeout)
+    try {
+      await Promise.race([
+        this.checkBackendAvailability(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Backend check timeout')), 1000))
+      ]);
+    } catch (error) {
+      console.warn('⚠️ Backend availability check timed out, using Web Audio API');
+      this.backendAvailable = false;
+    }
     
     if (this.backendAvailable && this.useBackendAudio) {
       console.log('✅ Using C++ Media Server for professional audio processing');
-      // Initialize real-time communication with C++ backend
-      await this.initializeBackendConnection();
+      // Initialize real-time communication with C++ backend (non-blocking)
+      setTimeout(() => this.initializeBackendConnection(), 100);
       return true;
     }
     
@@ -87,7 +101,7 @@ class AudioService {
     try {
       const response = await fetch(`${this.cppMediaServerUrl}/api/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(800)
       });
       
       this.backendAvailable = response.ok;

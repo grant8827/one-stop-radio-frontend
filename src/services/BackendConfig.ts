@@ -18,11 +18,11 @@ export interface BackendServiceConfig {
 export const BACKEND_CONFIG = {
   // Node.js Signaling Service (Real-time coordination & streaming management)
   SIGNALING: {
-    NAME: 'Python Signaling Service (HTTP Fallback)',
-    HTTP_PORT: 5002,
+    NAME: 'Node.js Signaling Service',
+    HTTP_PORT: 5001,
     WS_PORT: 5001,
-    BASE_URL: process.env.REACT_APP_NODE_API_URL || 'http://localhost:5002',
-    WS_URL: process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:5001',
+    BASE_URL: process.env.REACT_APP_SIGNALING_URL || 'http://localhost:5001',
+    WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:5001',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',
@@ -67,10 +67,10 @@ export const BACKEND_CONFIG = {
   },
 
   // Python FastAPI Service (Authentication & Data Management)
-  API: {
-    NAME: 'Python FastAPI Service',
-    PORT: 8001,
-    BASE_URL: process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8001',
+  FASTAPI: {
+    NAME: 'Python FastAPI Server',
+    PORT: 8002,
+    BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8002',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',
@@ -90,10 +90,9 @@ export const BACKEND_CONFIG = {
 
   // C++ Media Server (Audio/Video Processing & Streaming Engine)
   MEDIA: {
-    HTTP_PORT: 8080,
-    WEBRTC_PORT: 8081,
-    RTMP_PORT: 1935,
-    BASE_URL: process.env.REACT_APP_CPP_MEDIA_URL || 'http://localhost:8080',
+    NAME: 'C++ Media Server',
+    PORT: 8082,
+    BASE_URL: process.env.REACT_APP_MEDIA_SERVER_URL || 'http://localhost:8082',
     WEBRTC_URL: process.env.REACT_APP_CPP_WEBRTC_URL || 'ws://localhost:8081',
     ENDPOINTS: {
       // Health check
@@ -169,7 +168,7 @@ export const getServiceUrl = (service: ServiceType, endpoint?: string): string =
   if (!endpoint) return baseUrl;
   
   // Handle prefixed endpoints for API service
-  if (service === 'API' && !endpoint.startsWith('/api/')) {
+  if (service === 'FASTAPI' && !endpoint.startsWith('/api/')) {
     return `${baseUrl}/api${endpoint}`;
   }
   
@@ -193,25 +192,16 @@ export const isServiceAvailable = async (service: ServiceType): Promise<boolean>
     const healthEndpoint = config.ENDPOINTS.HEALTH;
     const response = await fetch(`${config.BASE_URL}${healthEndpoint}`, {
       method: 'GET',
-      signal: AbortSignal.timeout(5000)
-    });
-    
-    // For debugging: log the response details
-    console.log(`🔍 Health check ${service}:`, {
-      url: `${config.BASE_URL}${healthEndpoint}`,
-      status: response.status,
-      ok: response.ok
+      signal: AbortSignal.timeout(2000)
     });
     
     return response.ok;
   } catch (error) {
-    console.warn(`❌ Service ${service} is not available:`, error);
-    
-    // Temporary workaround: If it's the SIGNALING service and we get a network error,
-    // assume it might be running but with CORS issues, so mark as "degraded" but still functional
-    if (service === 'SIGNALING' && error instanceof TypeError) {
-      console.log(`⚠️ ${service} might be running but with connectivity issues - treating as available for now`);
-      return true; // Temporarily treat as available to avoid blocking the UI
+    // Only log once per service to reduce spam
+    if (!(window as any).serviceErrorLogged) (window as any).serviceErrorLogged = {};
+    if (!(window as any).serviceErrorLogged[service]) {
+      console.log(`⚠️ Service ${service} offline - using fallback mode`);
+      (window as any).serviceErrorLogged[service] = true;
     }
     
     return false;

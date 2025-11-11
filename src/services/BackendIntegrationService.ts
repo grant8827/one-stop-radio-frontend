@@ -93,7 +93,8 @@ class BackendIntegrationService {
   private maxReconnectAttempts = 5;
   
   constructor() {
-    this.initializeServices();
+    // Don't initialize services automatically to prevent connection errors
+    // Services will be initialized on-demand when needed
   }
 
   /**
@@ -116,7 +117,7 @@ class BackendIntegrationService {
    * Check availability of all backend services
    */
   private async checkAllServices(): Promise<void> {
-    const services: ServiceType[] = ['SIGNALING', 'API', 'MEDIA'];
+    const services: ServiceType[] = ['SIGNALING', 'FASTAPI', 'MEDIA'];
     
     for (const service of services) {
       try {
@@ -127,9 +128,9 @@ class BackendIntegrationService {
           lastCheck: new Date()
         });
         
-        console.log(`${available ? '✅' : '❌'} ${BACKEND_CONFIG[service].BASE_URL}`);
+
       } catch (error) {
-        console.error(`❌ Error checking ${service}:`, error);
+
         this.serviceStatuses.set(service, {
           service,
           status: 'error',
@@ -143,8 +144,15 @@ class BackendIntegrationService {
   /**
    * Initialize WebSocket connection for real-time updates
    */
-  private initializeWebSocket(): void {
+  private async initializeWebSocket(): Promise<void> {
     try {
+      // Check if signaling service is available before attempting connection
+      const signalingAvailable = await isServiceAvailable('SIGNALING');
+      if (!signalingAvailable) {
+        console.log('⚠️ Signaling service not available, skipping WebSocket connection');
+        return;
+      }
+
       const wsUrl = BACKEND_CONFIG.SIGNALING.WS_URL;
       this.webSocket = new WebSocket(wsUrl);
 
@@ -168,7 +176,7 @@ class BackendIntegrationService {
       };
 
       this.webSocket.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        console.warn('⚠️ WebSocket connection failed - service may be offline');
       };
     } catch (error) {
       console.error('❌ Failed to initialize WebSocket:', error);
@@ -210,17 +218,23 @@ class BackendIntegrationService {
   /**
    * Schedule WebSocket reconnection
    */
-  private scheduleReconnect(): void {
+  private async scheduleReconnect(): Promise<void> {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-      console.log(`🔄 Reconnecting WebSocket in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
       
-      setTimeout(() => {
+      setTimeout(async () => {
         this.reconnectAttempts++;
-        this.initializeWebSocket();
+        // Check if service is available before attempting reconnection
+        const signalingAvailable = await isServiceAvailable('SIGNALING');
+        if (signalingAvailable) {
+          console.log(`🔄 Reconnecting WebSocket (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+          this.initializeWebSocket();
+        } else {
+          console.log('⚠️ Signaling service still unavailable, skipping reconnection attempt');
+        }
       }, delay);
     } else {
-      console.error('❌ Max WebSocket reconnection attempts reached');
+      console.log('⚠️ Max WebSocket reconnection attempts reached - service appears to be offline');
     }
   }
 
@@ -228,9 +242,8 @@ class BackendIntegrationService {
    * Start periodic health monitoring
    */
   private startHealthMonitoring(): void {
-    setInterval(() => {
-      this.checkAllServices();
-    }, 30000); // Check every 30 seconds
+    // Disabled to prevent connection spam when services are offline
+    // Health checks will be performed on-demand
   }
 
   /**
@@ -383,7 +396,7 @@ class BackendIntegrationService {
    */
   public async login(email: string, password: string): Promise<{ token: string; user: any } | null> {
     try {
-      const url = getServiceUrl('API', BACKEND_CONFIG.API.ENDPOINTS.LOGIN);
+      const url = getServiceUrl('FASTAPI', BACKEND_CONFIG.FASTAPI.ENDPOINTS.LOGIN);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -403,7 +416,7 @@ class BackendIntegrationService {
    */
   public async getUserProfile(token: string): Promise<any | null> {
     try {
-      const url = getServiceUrl('API', BACKEND_CONFIG.API.ENDPOINTS.PROFILE);
+      const url = getServiceUrl('FASTAPI', BACKEND_CONFIG.FASTAPI.ENDPOINTS.PROFILE);
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });

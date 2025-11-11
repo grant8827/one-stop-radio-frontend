@@ -71,7 +71,7 @@ export interface StreamSession {
 }
 
 class APIService {
-  private baseURL = getServiceUrl('API'); // Python FastAPI backend
+  private baseURL = getServiceUrl('FASTAPI'); // Python FastAPI backend
   private signalingURL = getServiceUrl('SIGNALING'); // Node.js signaling service
   private authToken: string | null = null;
   private refreshToken: string | null = null;

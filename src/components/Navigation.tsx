@@ -22,14 +22,15 @@ import {
   AudioFile as AudioEncoderIcon,
   Videocam as VideoStreamIcon,
   Mic as MicIcon,
-  BugReport as TestIcon
+  BugReport as TestIcon,
+  Stream as StreamIcon
 } from '@mui/icons-material';
 import AudioSettings from './AudioSettings';
 import AudioDeviceSettings from './AudioDeviceSettings';
 
 interface NavigationProps {
-  currentView: 'dashboard' | 'mixer' | 'encoder' | 'video' | 'device-test';
-  onViewChange: (view: 'dashboard' | 'mixer' | 'encoder' | 'video' | 'device-test') => void;
+  currentView: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics';
+  onViewChange: (view: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test') => void;
   isStreaming?: boolean;
   listenerCount?: number;
   terminology?: 'dj' | 'radio' | 'broadcaster';
@@ -53,6 +54,7 @@ const Navigation: React.FC<NavigationProps> = ({
       case 'dj':
         return {
           dashboard: 'DJ Dashboard',
+          streams: 'Stream Manager',
           interface: 'DJ Interface',
           encoder: 'Audio Encoder',
           video: 'Video Stream'
@@ -60,6 +62,7 @@ const Navigation: React.FC<NavigationProps> = ({
       case 'radio':
         return {
           dashboard: 'Radio Dashboard',
+          streams: 'Stream Manager',
           interface: 'Radio Controls',
           encoder: 'Stream Encoder',
           video: 'Video Stream'
@@ -67,6 +70,7 @@ const Navigation: React.FC<NavigationProps> = ({
       case 'broadcaster':
         return {
           dashboard: 'Broadcaster Dashboard',
+          streams: 'Stream Manager',
           interface: 'Broadcast Controls',
           encoder: 'Audio Encoder',
           video: 'Video Stream',
@@ -75,6 +79,7 @@ const Navigation: React.FC<NavigationProps> = ({
       default:
         return {
           dashboard: 'Radio Dashboard',
+          streams: 'Stream Manager',
           interface: 'Radio Controls',
           encoder: 'Stream Encoder',
           video: 'Video Stream',
@@ -128,6 +133,21 @@ const Navigation: React.FC<NavigationProps> = ({
             }}
           >
             {getTerminologyLabels().dashboard}
+          </Button>
+
+          <Button
+            variant={currentView === 'streams' ? 'contained' : 'text'}
+            startIcon={<StreamIcon />}
+            onClick={() => onViewChange('streams')}
+            sx={{
+              color: currentView === 'streams' ? '#ffffff' : '#cccccc',
+              backgroundColor: currentView === 'streams' ? '#2196f3' : 'transparent',
+              '&:hover': {
+                backgroundColor: currentView === 'streams' ? '#1976d2' : 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            {getTerminologyLabels().streams}
           </Button>
           
           <Button

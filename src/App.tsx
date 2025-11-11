@@ -3,9 +3,11 @@ import './App.css';
 import HomePage from './components/HomePage';
 import DJInterface from './components/DJInterface';
 import Dashboard from './components/Dashboard';
+import StreamDashboard from './components/StreamDashboard';
 import AudioStreamEncoder from './components/AudioStreamEncoder';
 import VideoStreamingControls from './components/VideoStreamingControls';
 import AudioDeviceTestPage from './components/AudioDeviceTestPage';
+import ServiceDiagnostics from './components/ServiceDiagnostics';
 import Navigation from './components/Navigation';
 import { AudioActivityProvider } from './contexts/AudioActivityContext';
 import { PlaylistProvider } from './contexts/PlaylistContext';
@@ -21,7 +23,7 @@ console.log('REACT_APP_AUDIO_URL:', process.env.REACT_APP_AUDIO_URL);
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'mixer' | 'encoder' | 'video' | 'device-test'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics'>('dashboard');
   const [isStreaming] = useState(false);
   const [listenerCount] = useState(1247);
   const [terminology] = useState<'dj' | 'radio' | 'broadcaster'>('radio');
@@ -35,7 +37,7 @@ function App() {
     setCurrentView('dashboard');
   };
 
-  const handleViewChange = (view: 'dashboard' | 'mixer' | 'encoder' | 'video' | 'device-test') => {
+  const handleViewChange = (view: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test') => {
     setCurrentView(view);
   };
 
@@ -43,22 +45,33 @@ function App() {
   useEffect(() => {
     const initAudioService = async () => {
       try {
-        const success = await audioService.initialize();
+        console.log('🎵 App: Initializing AudioService...');
+        // Reduced timeout to prevent app-level freezing
+        const initPromise = audioService.initialize();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('App AudioService initialization timeout')), 1500)
+        );
+        
+        const success = await Promise.race([initPromise, timeoutPromise]);
         if (success) {
-          console.log('🎵 AudioService initialized successfully');
-          // Create default channels
-          audioService.createChannel('A');
-          audioService.createChannel('B');
+          console.log('✅ AudioService initialized successfully');
+          // Create default channels (non-blocking)
+          setTimeout(() => {
+            audioService.createChannel('A');
+            audioService.createChannel('B');
+          }, 100);
         } else {
-          console.error('❌ Failed to initialize AudioService');
+          console.warn('⚠️ AudioService initialization returned false, continuing...');
         }
       } catch (error) {
-        console.error('❌ AudioService initialization error:', error);
+        console.warn('⚠️ AudioService initialization failed, app will continue with limited audio features:', error);
+        // App continues to function even if audio init fails
       }
     };
 
     if (isLoggedIn) {
-      initAudioService();
+      // Initialize audio service in background to prevent UI blocking
+      setTimeout(() => initAudioService(), 100);
     }
   }, [isLoggedIn]);
 
@@ -66,6 +79,8 @@ function App() {
     switch (currentView) {
       case 'dashboard':
         return <Dashboard onViewChange={handleViewChange} />;
+      case 'streams':
+        return <StreamDashboard />;
       case 'mixer':
         return <DJInterface />;
       case 'encoder':
@@ -74,6 +89,8 @@ function App() {
         return <VideoStreamingControls />;
       case 'device-test':
         return <AudioDeviceTestPage />;
+      case 'diagnostics':
+        return <ServiceDiagnostics />;
       default:
         return <Dashboard onViewChange={handleViewChange} />;
     }

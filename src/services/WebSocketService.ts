@@ -40,7 +40,7 @@ class WebSocketService {
   private isConnecting = false;
   private eventHandlers: Map<string, EventCallback[]> = new Map();
   private config = {
-    url: process.env.REACT_APP_WS_URL || 'ws://localhost:5001', // Node.js signaling server
+    url: process.env.REACT_APP_WS_URL || 'ws://localhost:5000', // Node.js signaling server (corrected port)
     reconnectInterval: 5000,
     maxReconnectAttempts: 5,
     heartbeatInterval: 30000

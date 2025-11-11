@@ -165,15 +165,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
         // Load recent streaming sessions (handle missing backend gracefully)
         try {
           const sessions = await apiService.getStreamHistory();
-          setRecentSessions(sessions);
+          // Ensure all dates are valid Date objects
+          const validatedSessions = sessions.map(session => ({
+            ...session,
+            startTime: session.startTime ? new Date(session.startTime) : new Date(),
+            endTime: session.endTime ? new Date(session.endTime) : undefined
+          }));
+          setRecentSessions(validatedSessions);
         } catch (error) {
           console.log('Backend not available - using demo session data');
+          const now = Date.now();
           setRecentSessions([
             {
               id: 'demo-1',
               stationId: 'demo-station',
-              startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
-              endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
+              startTime: new Date(now - 2 * 60 * 60 * 1000),
+              endTime: new Date(now - 1 * 60 * 60 * 1000),
               duration: 3600,
               peakListeners: 85,
               avgListeners: 67,
@@ -187,8 +194,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
             {
               id: 'demo-2',
               stationId: 'demo-station',
-              startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-              endTime: new Date(Date.now() - 22 * 60 * 60 * 1000),
+              startTime: new Date(now - 24 * 60 * 60 * 1000),
+              endTime: new Date(now - 22 * 60 * 60 * 1000),
               duration: 7200,
               peakListeners: 142,
               avgListeners: 89,
@@ -211,27 +218,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
           }));
         });
 
-        // Mock recent activity data
+        // Mock recent activity data with valid timestamps
+        const now = Date.now();
         setRecentActivity([
           {
             id: '1',
             type: 'stream_start',
             message: 'Live stream started',
-            timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
+            timestamp: new Date(now - 30 * 60 * 1000), // 30 min ago
             severity: 'success'
           },
           {
             id: '2',
             type: 'listener_peak',
             message: 'New listener peak: 1,247',
-            timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 min ago
+            timestamp: new Date(now - 15 * 60 * 1000), // 15 min ago
             severity: 'info'
           },
           {
             id: '3',
             type: 'social_connect',
             message: 'Connected to YouTube Live',
-            timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 min ago
+            timestamp: new Date(now - 45 * 60 * 1000), // 45 min ago
             severity: 'success'
           }
         ]);
@@ -292,7 +300,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   const handleGoToRadioStation = () => {
     handleSettingsMenuClose();
     if (onViewChange) {
-      onViewChange('mixer');
+      // Add small delay to ensure smooth transition
+      setTimeout(() => {
+        onViewChange('mixer');
+      }, 50);
     }
   };
 
@@ -302,13 +313,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     return `${hours}h ${minutes}m`;
   };
 
-  const formatDate = (date: Date): string => {
+  const formatDate = (date: Date | string | number | undefined): string => {
+    if (!date) {
+      return 'No date';
+    }
+    
+    let dateObj: Date;
+    if (date instanceof Date) {
+      dateObj = date;
+    } else {
+      dateObj = new Date(date);
+    }
+    
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid Date';
+    }
+    
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    }).format(dateObj);
   };
 
   const getSeverityColor = (severity: string) => {
@@ -628,7 +654,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
                     {recentSessions.length > 0 ? recentSessions.map((session) => (
                       <TableRow key={session.id}>
                         <TableCell sx={{ color: '#ffffff' }}>
-                          {formatDate(session.startTime)}
+                          {session.startTime ? formatDate(session.startTime) : 'No date'}
                         </TableCell>
                         <TableCell sx={{ color: '#ffffff' }}>
                           {session.duration ? formatUptime(session.duration) : 'In Progress'}

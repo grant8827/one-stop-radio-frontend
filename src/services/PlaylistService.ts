@@ -37,7 +37,7 @@ class PlaylistService {
   // Database Integration Methods
   private async loadFromDatabase(): Promise<void> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         // Load playlists from database
         const playlistsResponse = await fetch(`${this.baseUrl}/playlists/`);
         if (playlistsResponse.ok) {
@@ -69,7 +69,7 @@ class PlaylistService {
 
   private async saveTrackToDatabase(track: Track): Promise<void> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         const response = await fetch(`${this.baseUrl}/tracks/`, {
           method: 'POST',
           headers: {
@@ -103,7 +103,7 @@ class PlaylistService {
 
   private async savePlaylistToDatabase(playlist: Playlist): Promise<void> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         const response = await fetch(`${this.baseUrl}/playlists/`, {
           method: 'POST',
           headers: {
@@ -128,7 +128,7 @@ class PlaylistService {
 
   async deleteTrackFromDatabase(trackId: string): Promise<void> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         await fetch(`${this.baseUrl}/tracks/${trackId}/`, {
           method: 'DELETE'
         });
@@ -140,7 +140,7 @@ class PlaylistService {
 
   private async deletePlaylistFromDatabase(playlistId: string): Promise<void> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         await fetch(`${this.baseUrl}/playlists/${playlistId}/`, {
           method: 'DELETE'
         });
@@ -164,7 +164,7 @@ class PlaylistService {
     await this.savePlaylistsToStorage();
 
     // Sync with backend if available
-    if (await isServiceAvailable('API')) {
+    if (await isServiceAvailable('FASTAPI')) {
       try {
         await this.syncPlaylistToBackend(playlist);
       } catch (error) {
@@ -181,7 +181,7 @@ class PlaylistService {
       await this.savePlaylistsToStorage();
       
       // Sync with backend
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         try {
           await this.deletePlaylistFromBackend(playlistId);
         } catch (error) {
@@ -206,7 +206,7 @@ class PlaylistService {
     await this.savePlaylistsToStorage();
 
     // Sync with backend
-    if (await isServiceAvailable('API')) {
+    if (await isServiceAvailable('FASTAPI')) {
       try {
         await this.syncPlaylistToBackend(updatedPlaylist);
       } catch (error) {
@@ -251,7 +251,7 @@ class PlaylistService {
 
       // Sync with database
       try {
-        if (await isServiceAvailable('API')) {
+        if (await isServiceAvailable('FASTAPI')) {
           await fetch(`${this.baseUrl}/playlists/${playlistId}/tracks/${trackId}/`, {
             method: 'DELETE'
           });
@@ -310,7 +310,7 @@ class PlaylistService {
       }
 
       // Upload to backend if available
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         try {
           const uploadedTrack = await this.uploadTrackToBackend(file, track);
           return uploadedTrack;
@@ -435,7 +435,7 @@ class PlaylistService {
 
   async getAllTracks(): Promise<Track[]> {
     try {
-      if (await isServiceAvailable('API')) {
+      if (await isServiceAvailable('FASTAPI')) {
         const response = await fetch(`${this.baseUrl}/tracks/`);
         if (response.ok) {
           const tracks: Track[] = await response.json();
@@ -536,9 +536,9 @@ class PlaylistService {
   }
 
   private async syncPlaylistToBackend(playlist: Playlist): Promise<void> {
-    if (!await isServiceAvailable('API')) return;
+    if (!await isServiceAvailable('FASTAPI')) return;
 
-    const response = await fetch(`${getServiceUrl('API')}/api/v1/playlists`, {
+    const response = await fetch(`${getServiceUrl('FASTAPI')}/api/v1/playlists`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -559,9 +559,9 @@ class PlaylistService {
   }
 
   private async deletePlaylistFromBackend(playlistId: string): Promise<void> {
-    if (!await isServiceAvailable('API')) return;
+    if (!await isServiceAvailable('FASTAPI')) return;
 
-    const response = await fetch(`${getServiceUrl('API')}/api/v1/playlists/${playlistId}`, {
+    const response = await fetch(`${getServiceUrl('FASTAPI')}/api/v1/playlists/${playlistId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
@@ -574,7 +574,7 @@ class PlaylistService {
   }
 
   private async uploadTrackToBackend(file: File, track: Track): Promise<Track> {
-    if (!await isServiceAvailable('API')) {
+    if (!await isServiceAvailable('FASTAPI')) {
       throw new Error('FastAPI service not available');
     }
 

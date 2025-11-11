@@ -57,16 +57,30 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   useEffect(() => {
     const initializeAudio = async () => {
       try {
-        await audioService.initialize();
-        // Initialize crossfader to center position
-        audioService.setCrossfader(0); // 0 = center position
-        console.log('✅ AudioService initialized for mixer with crossfader at center');
+        console.log('🎛️ Mixer: Initializing audio service...');
+        // Ultra-fast timeout for immediate UI response
+        const initPromise = audioService.initialize();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('AudioService initialization timeout')), 200)
+        );
+        
+        const success = await Promise.race([initPromise, timeoutPromise]);
+        
+        if (success) {
+          // Initialize crossfader to center position (non-blocking)
+          setTimeout(() => {
+            audioService.setCrossfader(0);
+          }, 100);
+          console.log('✅ AudioService initialized for mixer');
+        }
       } catch (error) {
-        console.error('❌ Failed to initialize audio service:', error);
+        console.warn('⚠️ AudioService initialization failed, mixer will use fallback mode:', error);
+        // Continue with limited functionality instead of freezing
       }
     };
     
-    initializeAudio();
+    // Initialize immediately in background
+    setTimeout(() => initializeAudio(), 10);
   }, []);
 
 
@@ -136,7 +150,6 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
   React.useEffect(() => {
     const initializeMicState = async () => {
       try {
-        const { audioService } = await import('../services/AudioService');
         const isEnabled = audioService.isMicrophoneEnabled();
         const currentGain = audioService.getMicrophoneGain();
         
@@ -152,7 +165,8 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
       }
     };
 
-    initializeMicState();
+    // Initialize mic state immediately
+    setTimeout(() => initializeMicState(), 50);
   }, [updateMicrophone]);
 
   // Real-time VU meter updates are now handled directly in the VUPeakMeter component
@@ -250,7 +264,6 @@ const Mixer: React.FC<MixerProps> = ({ deckA = null, deckB = null }) => {
     setMicGain(newGain);
     
     try {
-      const { audioService } = await import('../services/AudioService');
       audioService.setMicrophoneGain(newGain);
       console.log(`🎤 Microphone gain set to ${newGain}%`);
     } catch (error) {

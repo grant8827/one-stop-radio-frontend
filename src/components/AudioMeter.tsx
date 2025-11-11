@@ -2,176 +2,29 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 
-// Add CSS keyframes for blink animation
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes blink {
-    0% { opacity: 1; }
-    100% { opacity: 0.3; }
-  }
-`;
-document.head.appendChild(style);
-
-// VU Peak Meter Bar Component
-const VUMeterBar: React.FC<{ 
-  level: number; 
-  peakLevel: number; 
-  height: number;
-  peakHoldTime: number;
-}> = ({ level, peakLevel, height, peakHoldTime }) => {
-  // Calculate colors based on level
-  const getBarColor = (percentage: number) => {
-    if (percentage <= 60) {
-      // Green zone (0-60%)
-      return `linear-gradient(180deg, 
-        #00ff00 0%, 
-        #66ff66 50%, 
-        #33ff33 100%
-      )`;
-    } else if (percentage <= 85) {
-      // Yellow zone (60-85%)
-      return `linear-gradient(180deg, 
-        #ffff00 0%, 
-        #ffcc00 50%, 
-        #ff9900 100%
-      )`;
-    } else {
-      // Red zone (85-100%)
-      return `linear-gradient(180deg, 
-        #ff0000 0%, 
-        #ff3333 50%, 
-        #cc0000 100%
-      )`;
-    }
-  };
-
-  return (
-    <Box
-      sx={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        background: `
-          linear-gradient(180deg, 
-            #2a2a2a 0%, 
-            #1a1a1a 10%, 
-            #0d0d0d 40%, 
-            #050505 60%, 
-            #0d0d0d 85%, 
-            #1a1a1a 95%, 
-            #2a2a2a 100%
-          )
-        `,
-        borderRadius: '4px',
-        border: '1px solid #444',
-        overflow: 'hidden',
-        boxShadow: `
-          inset 0 2px 4px rgba(0,0,0,0.8),
-          inset 0 -1px 2px rgba(255,255,255,0.05)
-        `
-      }}
-    >
-      {/* Background scale marks */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            repeating-linear-gradient(
-              180deg,
-              transparent 0%,
-              transparent 8%,
-              rgba(255,255,255,0.05) 9%,
-              transparent 10%
-            )
-          `,
-          zIndex: 1
-        }}
-      />
-
-      {/* Level bar */}
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: `${Math.min(level, 100)}%`,
-          background: getBarColor(level),
-          zIndex: 2,
-          transition: 'height 0.05s ease',
-          boxShadow: level > 85 
-            ? `
-              0 0 8px rgba(255, 0, 0, 0.8),
-              inset 0 1px 2px rgba(255,255,255,0.3)
-            `
-            : level > 60
-              ? `
-                0 0 4px rgba(255, 255, 0, 0.6),
-                inset 0 1px 2px rgba(255,255,255,0.2)
-              `
-              : `
-                0 0 2px rgba(0, 255, 0, 0.4),
-                inset 0 1px 1px rgba(255,255,255,0.1)
-              `,
-          '&::before': level > 70 ? {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '2px',
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)'
-          } : {}
-        }}
-      />
-
-      {/* Peak indicator line */}
-      {peakLevel > 5 && peakHoldTime > 0 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: `${Math.min(peakLevel, 100)}%`,
-            left: 0,
-            right: 0,
-            height: '2px',
-            background: peakLevel > 90 
-              ? 'linear-gradient(90deg, transparent, #ff0000, transparent)'
-              : peakLevel > 75
-                ? 'linear-gradient(90deg, transparent, #ffff00, transparent)'
-                : 'linear-gradient(90deg, transparent, #ffffff, transparent)',
-            zIndex: 3,
-            boxShadow: peakLevel > 90 
-              ? '0 0 6px rgba(255, 0, 0, 1)'
-              : '0 0 4px rgba(255, 255, 255, 0.8)',
-            opacity: Math.max(0.3, peakHoldTime / 60),
-            animation: peakLevel > 95 ? 'blink 0.5s ease-in-out infinite alternate' : 'none'
-          }}
-        />
-      )}
-
-      {/* Clipping indicator */}
-      {level >= 98 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: '#ff0000',
-            zIndex: 4,
-            boxShadow: '0 0 8px rgba(255, 0, 0, 1)',
-            animation: 'blink 0.2s ease-in-out infinite alternate'
-          }}
-        />
-      )}
-    </Box>
-  );
-};
+const MeterSegment: React.FC<{ active?: boolean; color: string; intensity?: number }> = ({ 
+  active, 
+  color, 
+  intensity = 1 
+}) => (
+  <Box
+    sx={{
+      height: 2.5,
+      width: '100%',
+      backgroundColor: active ? color : '#333',
+      mb: '1px',
+      borderRadius: '1px',
+      transition: 'background-color 0.05s ease, box-shadow 0.05s ease',
+      opacity: active ? Math.max(0.6, intensity) : 0.4,
+      boxShadow: active && intensity > 0.8 
+        ? `0 0 3px ${color}, inset 0 1px 1px rgba(255,255,255,0.2)` 
+        : active 
+          ? `inset 0 1px 1px rgba(255,255,255,0.1)`
+          : 'none',
+      transform: active && intensity > 0.9 ? 'scaleX(1.05)' : 'scaleX(1)'
+    }}
+  />
+);
 
 interface AudioMeterProps {
   label: string;
@@ -253,7 +106,18 @@ const AudioMeter: React.FC<AudioMeterProps> = ({
     };
   }, [isPlaying, level, peakLevel, peakHoldTime]);
 
-
+  // Calculate which segments should be active based on current level
+  // Arranged from top to bottom: Red (top) → Yellow (middle) → Green (bottom)
+  const segments = [
+    { color: '#ff0000', threshold: 90 }, // Red - Peak/Clip (TOP)
+    { color: '#ff7f00', threshold: 75 },
+    { color: '#ffff00', threshold: 60 }, // Yellow (MIDDLE)
+    { color: '#bfff00', threshold: 45 },
+    { color: '#7fff00', threshold: 30 },
+    { color: '#00ff00', threshold: 15 }, // Green (BOTTOM)
+    { color: '#00ff00', threshold: 5 },
+    { color: '#00ff00', threshold: 0 }
+  ];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -261,16 +125,34 @@ const AudioMeter: React.FC<AudioMeterProps> = ({
         {label}
       </Typography>
       <Box sx={{ 
+        border: '1px solid #444', 
+        borderRadius: '2px', 
+        p: '1px', 
         width: 16, 
         height,
-        position: 'relative'
+        display: 'flex', 
+        flexDirection: 'column', // Top to bottom: red → yellow → green
+        backgroundColor: '#1a1a1a'
       }}>
-        <VUMeterBar
-          level={currentLevel}
-          peakLevel={peakLevel}
-          height={height}
-          peakHoldTime={peakHoldTime}
-        />
+        {segments.map((segment, index) => {
+          // Calculate segment position from bottom (0 = bottom segment, 7 = top segment)
+          const segmentPosition = segments.length - 1 - index;
+          const segmentLevel = (segmentPosition / (segments.length - 1)) * 100;
+          const isActive = currentLevel >= segmentLevel;
+          const isPeak = Math.abs(peakLevel - segmentLevel) <= 12.5; // Peak indicator within range
+          
+          // Calculate intensity for visual effects (how much above threshold)
+          const intensity = isActive ? Math.min(1, (currentLevel - segmentLevel) / 10 + 0.5) : 0;
+          
+          return (
+            <MeterSegment 
+              key={index}
+              active={isActive || (isPeak && peakHoldTime > 0)}
+              color={isPeak && peakHoldTime > 0 && !isActive ? '#ffffff' : segment.color}
+              intensity={isPeak && peakHoldTime > 0 ? 1 : intensity}
+            />
+          );
+        })}
       </Box>
     </Box>
   );
