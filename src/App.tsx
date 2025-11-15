@@ -4,6 +4,8 @@ import HomePage from './components/HomePage';
 import DJInterface from './components/DJInterface';
 import Dashboard from './components/Dashboard';
 import StreamDashboard from './components/StreamDashboard';
+
+
 import AudioStreamEncoder from './components/AudioStreamEncoder';
 import VideoStreamingControls from './components/VideoStreamingControls';
 import AudioDeviceTestPage from './components/AudioDeviceTestPage';
@@ -23,7 +25,7 @@ console.log('REACT_APP_AUDIO_URL:', process.env.REACT_APP_AUDIO_URL);
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'streams' | 'dedicated-stream' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics'>('dashboard');
   const [isStreaming] = useState(false);
   const [listenerCount] = useState(1247);
   const [terminology] = useState<'dj' | 'radio' | 'broadcaster'>('radio');
@@ -37,7 +39,7 @@ function App() {
     setCurrentView('dashboard');
   };
 
-  const handleViewChange = (view: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test') => {
+  const handleViewChange = (view: 'dashboard' | 'streams' | 'dedicated-stream' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics') => {
     setCurrentView(view);
   };
 
@@ -81,6 +83,13 @@ function App() {
         return <Dashboard onViewChange={handleViewChange} />;
       case 'streams':
         return <StreamDashboard />;
+      case 'dedicated-stream':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#ffffff' }}>
+            <h2 style={{ color: '#ffffff' }}>Dedicated Stream Manager</h2>
+            <p style={{ color: '#ffffff' }}>Advanced streaming management coming soon...</p>
+          </div>
+        );
       case 'mixer':
         return <DJInterface />;
       case 'encoder':

@@ -26,7 +26,6 @@ const VideoPlayer = lazy(() => import('./VideoPlayer'));
 const TrackChannelDiagnostics = lazy(() => import('./TrackChannelDiagnostics'));
 const MusicPlaylist = lazy(() => import('./MusicPlaylist'));
 const BackendStatusIndicator = lazy(() => import('./BackendStatusIndicator'));
-
 interface DJInterfaceState {
   isStreaming: boolean;
   listenerStats: ListenerStats | null;

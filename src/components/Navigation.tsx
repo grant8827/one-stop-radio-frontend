@@ -23,14 +23,15 @@ import {
   Videocam as VideoStreamIcon,
   Mic as MicIcon,
   BugReport as TestIcon,
-  Stream as StreamIcon
+  Stream as StreamIcon,
+  CloudUpload as DedicatedStreamIcon
 } from '@mui/icons-material';
 import AudioSettings from './AudioSettings';
 import AudioDeviceSettings from './AudioDeviceSettings';
 
 interface NavigationProps {
-  currentView: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics';
-  onViewChange: (view: 'dashboard' | 'streams' | 'mixer' | 'encoder' | 'video' | 'device-test') => void;
+  currentView: 'dashboard' | 'streams' | 'dedicated-stream' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics';
+  onViewChange: (view: 'dashboard' | 'streams' | 'dedicated-stream' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics') => void;
   isStreaming?: boolean;
   listenerCount?: number;
   terminology?: 'dj' | 'radio' | 'broadcaster';
@@ -148,6 +149,21 @@ const Navigation: React.FC<NavigationProps> = ({
             }}
           >
             {getTerminologyLabels().streams}
+          </Button>
+
+          <Button
+            variant={currentView === 'dedicated-stream' ? 'contained' : 'text'}
+            startIcon={<DedicatedStreamIcon />}
+            onClick={() => onViewChange('dedicated-stream')}
+            sx={{
+              color: currentView === 'dedicated-stream' ? '#ffffff' : '#cccccc',
+              backgroundColor: currentView === 'dedicated-stream' ? '#4caf50' : 'transparent',
+              '&:hover': {
+                backgroundColor: currentView === 'dedicated-stream' ? '#388e3c' : 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            Dedicated Stream
           </Button>
           
           <Button

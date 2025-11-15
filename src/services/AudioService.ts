@@ -452,35 +452,14 @@ class AudioService {
    */
   async setChannelVolume(channelId: string, volume: number): Promise<boolean> {
     if (this.backendAvailable) {
-      try {
-        const response = await fetch(`${this.cppMediaServerUrl}/api/radio/channel/volume`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            channel: channelId,
-            volume: volume
-          })
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-          console.log(`✅ Channel ${channelId} volume set to ${volume} via C++ backend`);
-          return true;
-        } else {
-          console.warn(`⚠️ C++ backend volume control failed: ${result.message}`);
-        }
-      } catch (error) {
-        console.warn('⚠️ C++ backend volume control error:', error);
-      }
+      const success = await backendService.setChannelVolume(channelId, volume);
+      if (success) return true;
     }
     
     // Fallback to Web Audio API
     const channel = this.channels.get(channelId);
     if (channel && channel.gainNode) {
-      channel.gainNode.gain.value = volume;
+      channel.gainNode.gain.value = volume / 100;
       return true;
     }
     
@@ -668,7 +647,13 @@ class AudioService {
   /**
    * Set loop state for a channel
    */
-  setChannelLoop(channelId: string, isLooping: boolean): void {
+  async setChannelLoop(channelId: string, isLooping: boolean): Promise<void> {
+    if (this.backendAvailable) {
+      const success = await backendService.setTrackLoop(channelId, isLooping);
+      if (success) return;
+    }
+
+    // Fallback to Web Audio API
     const channel = this.channels.get(channelId);
     if (!channel) return;
 
@@ -702,7 +687,13 @@ class AudioService {
   /**
    * Seek to specific position in track
    */
-  seekToPosition(channelId: string, position: number): void {
+  async seekToPosition(channelId: string, position: number): Promise<void> {
+    if (this.backendAvailable) {
+      const success = await backendService.seekTrack(channelId, position);
+      if (success) return;
+    }
+
+    // Fallback to Web Audio API
     const channel = this.channels.get(channelId);
     if (!channel || !channel.audioBuffer) return;
 
@@ -760,7 +751,13 @@ class AudioService {
   /**
    * Set channel EQ
    */
-  setChannelEQ(channelId: string, eq: { bass: number; mid: number; treble: number }): void {
+  async setChannelEQ(channelId: string, eq: { bass: number; mid: number; treble: number }): Promise<void> {
+    if (this.backendAvailable) {
+      const success = await backendService.setChannelEQ(channelId, eq);
+      if (success) return;
+    }
+
+    // Fallback to Web Audio API
     const channel = this.channels.get(channelId);
     if (!channel || !this.audioContext) return;
 
@@ -779,7 +776,13 @@ class AudioService {
   /**
    * Set crossfader position
    */
-  setCrossfader(position: number): void {
+  async setCrossfader(position: number): Promise<void> {
+    if (this.backendAvailable) {
+      const success = await backendService.setCrossfader(position);
+      if (success) return;
+    }
+
+    // Fallback to Web Audio API
     if (!this.crossfaderGain.a || !this.crossfaderGain.b || !this.audioContext) return;
 
     const currentTime = this.audioContext.currentTime;
@@ -1613,6 +1616,175 @@ class AudioService {
       currentTime: 0, // This would need to be tracked during playback
       duration: channel.audioBuffer.duration
     };
+  }
+
+  /**
+   * Set channel gain
+   */
+  async setChannelGain(channelId: string, gain: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setChannelGain(channelId, gain);
+    }
+    
+    // Web Audio fallback - gain is handled by volume control
+    return this.setChannelVolume(channelId, gain);
+  }
+
+  /**
+   * Set channel cue (headphone monitoring)
+   */
+  async setChannelCue(channelId: string, enabled: boolean): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setChannelCue(channelId, enabled);
+    }
+    
+    console.log(`🎧 Channel ${channelId} cue ${enabled ? 'enabled' : 'disabled'} (Web Audio fallback)`);
+    return true;
+  }
+
+  /**
+   * Set track pitch/tempo
+   */
+  async setTrackPitch(channelId: string, pitch: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setTrackPitch(channelId, pitch);
+    }
+    
+    console.log(`🎵 Channel ${channelId} pitch set to ${pitch}% (Web Audio fallback - not implemented)`);
+    return false; // Web Audio API doesn't easily support pitch shifting
+  }
+
+  /**
+   * Get track progress (position and duration)
+   */
+  async getTrackProgress(channelId: string): Promise<{ position: number; duration: number } | null> {
+    if (this.backendAvailable) {
+      return await backendService.getTrackProgress(channelId);
+    }
+    
+    // Web Audio fallback
+    const channel = this.channels.get(channelId);
+    if (!channel?.audioBuffer) return null;
+    
+    return {
+      position: this.getCurrentPosition(channelId),
+      duration: channel.audioBuffer.duration
+    };
+  }
+
+  /**
+   * Set headphone volume
+   */
+  async setHeadphoneVolume(volume: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setHeadphoneVolume(volume);
+    }
+    
+    console.log(`🎧 Headphone volume set to ${volume}% (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Set headphone cue mix
+   */
+  async setHeadphoneCueMix(mix: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setHeadphoneCueMix(mix);
+    }
+    
+    console.log(`🎧 Headphone cue mix set to ${mix}% (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Get track waveform data
+   */
+  async getTrackWaveform(channelId: string): Promise<Float32Array | null> {
+    if (this.backendAvailable) {
+      return await backendService.getTrackWaveform(channelId);
+    }
+    
+    // Web Audio fallback - return current frequency data
+    return this.getChannelFrequencyData(channelId);
+  }
+
+  /**
+   * Set BPM sync
+   */
+  async setBPMSync(channelId: string, enabled: boolean, targetBPM?: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setBPMSync(channelId, enabled, targetBPM);
+    }
+    
+    console.log(`🎵 Channel ${channelId} BPM sync ${enabled ? 'enabled' : 'disabled'} (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Trigger hot cue
+   */
+  async triggerHotCue(channelId: string, cueNumber: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.triggerHotCue(channelId, cueNumber);
+    }
+    
+    console.log(`🔥 Channel ${channelId} hot cue ${cueNumber} triggered (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Set hot cue point
+   */
+  async setHotCue(channelId: string, cueNumber: number, position: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.setHotCue(channelId, cueNumber, position);
+    }
+    
+    console.log(`🔥 Channel ${channelId} hot cue ${cueNumber} set at ${position}s (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Clear hot cue point
+   */
+  async clearHotCue(channelId: string, cueNumber: number): Promise<boolean> {
+    if (this.backendAvailable) {
+      return await backendService.clearHotCue(channelId, cueNumber);
+    }
+    
+    console.log(`🔥 Channel ${channelId} hot cue ${cueNumber} cleared (Web Audio fallback - not implemented)`);
+    return false;
+  }
+
+  /**
+   * Get comprehensive audio levels from C++ backend
+   */
+  async getComprehensiveAudioLevels(): Promise<any> {
+    if (this.backendAvailable) {
+      return await backendService.getAudioLevels();
+    }
+    
+    // Web Audio fallback
+    return {
+      master: this.getMasterLevels(),
+      channelA: this.getChannelLevels('A'),
+      channelB: this.getChannelLevels('B'),
+      microphone: { left: this.getAudioLevelPercentage('microphone'), right: this.getAudioLevelPercentage('microphone') }
+    };
+  }
+
+  /**
+   * Get audio context for streaming
+   */
+  getAudioContext(): AudioContext | null {
+    return this.audioContext;
+  }
+
+  /**
+   * Get master gain node for streaming
+   */
+  getMasterGain(): GainNode | null {
+    return this.masterGainNode;
   }
 
   /**

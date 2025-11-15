@@ -5,6 +5,15 @@
 
 import { BACKEND_CONFIG, getServiceUrl } from './BackendConfig';
 
+// API Base URLs from environment variables
+const getApiUrls = () => ({
+  fastapi: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8002',
+  nodejs: process.env.REACT_APP_SIGNALING_URL || 'http://localhost:5001', 
+  audio: process.env.REACT_APP_AUDIO_URL || 'http://localhost:5001',
+  cpp: process.env.REACT_APP_CPP_API_URL || 'http://localhost:8080',
+  websocket: process.env.REACT_APP_WS_URL || 'ws://localhost:5001'
+});
+
 export interface User {
   id: string;
   email: string;
@@ -71,8 +80,8 @@ export interface StreamSession {
 }
 
 class APIService {
-  private baseURL = getServiceUrl('FASTAPI'); // Python FastAPI backend
-  private signalingURL = getServiceUrl('SIGNALING'); // Node.js signaling service
+  private baseURL = getApiUrls().fastapi; // Python FastAPI backend
+  private signalingURL = getApiUrls().nodejs; // Node.js signaling service
   private authToken: string | null = null;
   private refreshToken: string | null = null;
 

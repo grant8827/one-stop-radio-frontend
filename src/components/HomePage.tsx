@@ -9,9 +9,7 @@ import {
   Card,
   CardContent,
   IconButton,
-  Tooltip,
   Alert,
-  Snackbar,
   AppBar,
   Toolbar,
   Menu,
@@ -27,21 +25,25 @@ import {
   PlayArrow as PlayIcon,
   Analytics as AnalyticsIcon,
   Verified as VerifiedIcon,
-  ContentCopy as CopyIcon,
-  Launch as LaunchIcon,
   Menu as MenuIcon,
   Home as HomeIcon,
   Info as InfoIcon,
   ContactMail as ContactIcon,
   Login as LoginIcon
 } from '@mui/icons-material';
+import Login from './Login';
+import Register from './Register';
+import PricingPage from './PricingPage';
 
 const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showAlert, setShowAlert] = useState(false);
-  const [copyText, setCopyText] = useState('Copy URL');
+
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
 
   // Scroll trigger for navbar background
   const trigger = useScrollTrigger({
@@ -65,48 +67,16 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     handleMobileMenuClose();
   };
 
-  // Modern radio streaming URLs
-  const radioStreams = [
-    { 
-      name: 'OneStopRadio Live Stream', 
-      url: 'https://onestopradio.stream/live',
-      format: 'HLS',
-      quality: '320kbps'
-    },
-    { 
-      name: 'OneStopRadio Mobile', 
-      url: 'https://onestopradio.stream/mobile',
-      format: 'AAC',
-      quality: '128kbps'
-    },
-    { 
-      name: 'OneStopRadio HD', 
-      url: 'https://onestopradio.stream/hd',
-      format: 'FLAC',
-      quality: '1411kbps'
-    }
-  ];
 
-  const handleCopyUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopyText('Copied!');
-      setShowAlert(true);
-      setTimeout(() => {
-        setCopyText('Copy URL');
-        setShowAlert(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy URL:', err);
-    }
-  };
+
+
 
   const features = [
     {
-      icon: <MicIcon sx={{ fontSize: 48, color: '#00D4FF' }} />,
+      icon: <MicIcon sx={{ fontSize: 48, color: '#2196F3' }} />,
       title: 'AI-Powered Mixing',
       description: 'Advanced audio mixing with AI-assisted beatmatching and seamless transitions',
-      gradient: 'linear-gradient(135deg, #00D4FF 0%, #5928E6 100%)'
+      gradient: 'linear-gradient(135deg, #2196F3 0%, #FF4444 100%)'
     },
     {
       icon: <VideocamIcon sx={{ fontSize: 48, color: '#FF6B9D' }} />,
@@ -124,7 +94,7 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       icon: <AnalyticsIcon sx={{ fontSize: 48, color: '#FFD93D' }} />,
       title: 'Live Analytics',
       description: 'Real-time audience insights, engagement metrics, and performance analytics',
-      gradient: 'linear-gradient(135deg, #FFD93D 0%, #FF6B6B 100%)'
+      gradient: 'linear-gradient(135deg, #FFD93D 0%, #FF4444 100%)'
     }
   ];
 
@@ -139,16 +109,7 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
   return (
     <>
-      <Snackbar
-        open={showAlert}
-        autoHideDuration={2000}
-        onClose={() => setShowAlert(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled">
-          Radio URL copied to clipboard!
-        </Alert>
-      </Snackbar>
+
 
       {/* Modern Navigation Bar */}
       <AppBar 
@@ -172,7 +133,7 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <RadioIcon sx={{ 
               fontSize: 32, 
-              color: trigger ? '#00D4FF' : 'white',
+              color: trigger ? '#2196F3' : '#2196F3',
               mr: 1,
               transition: 'color 0.3s ease'
             }} />
@@ -265,22 +226,38 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
               Contact
             </Button>
             <Button
+              color="inherit"
+              onClick={() => setShowPricing(true)}
+              sx={{ 
+                color: trigger ? '#1a1a1a' : 'white',
+                fontWeight: 500,
+                textTransform: 'none',
+                '&:hover': {
+                  background: trigger 
+                    ? 'rgba(0, 212, 255, 0.1)' 
+                    : 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Pricing
+            </Button>
+            <Button
               variant="contained"
               startIcon={<LoginIcon />}
               onClick={onLogin}
               sx={{
-                background: 'linear-gradient(135deg, #00D4FF 0%, #5928E6 100%)',
+                background: 'linear-gradient(135deg, #2196F3 0%, #FF4444 100%)',
                 color: 'white',
                 fontWeight: 600,
                 textTransform: 'none',
                 px: 3,
                 py: 1,
                 borderRadius: '25px',
-                boxShadow: '0 4px 15px rgba(89, 40, 230, 0.3)',
+                boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #00B8E6 0%, #4919C7 100%)',
+                  background: 'linear-gradient(135deg, #1976D2 0%, #E63946 100%)',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(89, 40, 230, 0.4)'
+                  boxShadow: '0 6px 20px rgba(33, 150, 243, 0.4)'
                 },
                 transition: 'all 0.3s ease'
               }}
@@ -326,23 +303,28 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           }}
         >
           <MenuItem onClick={() => scrollToSection('home')}>
-            <HomeIcon sx={{ mr: 2, color: '#00D4FF' }} />
+            <HomeIcon sx={{ mr: 2, color: '#2196F3' }} />
             Home
           </MenuItem>
           <MenuItem onClick={() => scrollToSection('features')}>
-            <InfoIcon sx={{ mr: 2, color: '#00D4FF' }} />
+            <InfoIcon sx={{ mr: 2, color: '#2196F3' }} />
             Features
           </MenuItem>
           <MenuItem onClick={() => scrollToSection('streams')}>
-            <RadioIcon sx={{ mr: 2, color: '#00D4FF' }} />
+            <RadioIcon sx={{ mr: 2, color: '#2196F3' }} />
             Live Streams
           </MenuItem>
           <MenuItem onClick={() => scrollToSection('contact')}>
-            <ContactIcon sx={{ mr: 2, color: '#00D4FF' }} />
+            <ContactIcon sx={{ mr: 2, color: '#2196F3' }} />
             Contact
           </MenuItem>
+          <MenuItem onClick={() => { setShowPricing(true); handleMobileMenuClose(); }}>
+            <Typography variant="body2" sx={{ color: '#1a1a1a', fontWeight: 600 }}>
+              Pricing
+            </Typography>
+          </MenuItem>
           <MenuItem onClick={onLogin}>
-            <LoginIcon sx={{ mr: 2, color: '#5928E6' }} />
+            <LoginIcon sx={{ mr: 2, color: '#FF4444' }} />
             Launch Studio
           </MenuItem>
         </Menu>
@@ -354,10 +336,10 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         sx={{ 
           minHeight: '100vh',
           background: `
-            radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%),
-            linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)
+            radial-gradient(circle at 20% 20%, rgba(33, 150, 243, 0.4) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(255, 68, 68, 0.4) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(120, 219, 255, 0.2) 0%, transparent 50%),
+            linear-gradient(135deg, #2196F3 0%, #1976D2 30%, #E63946 70%, #FF4444 100%)
           `,
           color: 'white',
           position: 'relative',
@@ -391,15 +373,12 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                   mr: 3,
                   border: '1px solid rgba(255, 255, 255, 0.2)'
                 }}>
-                  <RadioIcon sx={{ fontSize: 50, color: '#00D4FF' }} />
+                  <RadioIcon sx={{ fontSize: 50, color: '#FF4444' }} />
                 </Box>
                 <Typography variant="h1" component="h1" sx={{ 
                   fontWeight: 900, 
                   fontSize: { xs: '2.5rem', md: '4rem' },
-                  background: 'linear-gradient(135deg, #fff 0%, #00D4FF 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: '#FF4444',
                   letterSpacing: '-2px'
                 }}>
                   OneStopRadio
@@ -450,53 +429,40 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                 ))}
               </Box>
 
-              {/* Radio Stream URLs */}
-              <Box id="streams" sx={{ mb: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                  🔴 Live Radio Streams Available Now
+              {/* Get Started for Free Button */}
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => setShowPricing(true)}
+                  sx={{
+                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '1.3rem',
+                    px: 6,
+                    py: 2,
+                    borderRadius: '50px',
+                    textTransform: 'none',
+                    boxShadow: '0 8px 30px rgba(76, 175, 80, 0.4)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #45a049 0%, #3d8b40 100%)',
+                      transform: 'translateY(-3px)',
+                      boxShadow: '0 12px 40px rgba(76, 175, 80, 0.6)'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  🎉 Get Started for Free
+                </Button>
+                <Typography variant="body2" sx={{ 
+                  mt: 2, 
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  fontSize: '1rem',
+                  textAlign: 'center'
+                }}>
+                  ✨ Free 1-month trial • No credit card required • Full features included
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {radioStreams.map((stream, index) => (
-                    <Paper
-                      key={index}
-                      elevation={0}
-                      sx={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(15px)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '12px',
-                        p: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'white' }}>
-                          {stream.name}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.8, color: 'white' }}>
-                          {stream.format} • {stream.quality} • {stream.url}
-                        </Typography>
-                      </Box>
-                      <Tooltip title={copyText}>
-                        <IconButton
-                          onClick={() => handleCopyUrl(stream.url)}
-                          sx={{
-                            color: 'white',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            '&:hover': {
-                              background: 'rgba(255, 255, 255, 0.2)',
-                              transform: 'scale(1.1)'
-                            }
-                          }}
-                        >
-                          <CopyIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Paper>
-                  ))}
-                </Box>
               </Box>
             </Box>
             
@@ -524,77 +490,56 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     Launch Your Studio
                   </Typography>
                   
-                  <TextField
-                    label="Email Address"
-                    type="email"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        borderRadius: '12px',
-                        '& fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.3)',
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
-                        },
-                      }
-                    }}
-                  />
+                  <Typography variant="body1" sx={{ 
+                    textAlign: 'center', 
+                    mb: 4,
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontSize: '1.1rem',
+                    lineHeight: 1.6
+                  }}>
+                    Join thousands of DJs and broadcasters using OneStopRadio's professional streaming platform.
+                  </Typography>
                   
-                  <TextField
-                    label="Password"
-                    type="password"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        background: 'rgba(255, 255, 255, 0.9)',
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 4 }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<LoginIcon />}
+                      onClick={() => setShowLogin(true)}
+                      sx={{
+                        background: 'linear-gradient(135deg, #2196F3 0%, #FF4444 100%)',
+                        color: 'white',
+                        fontWeight: 600,
+                        px: 4,
+                        py: 1.5,
                         borderRadius: '12px',
-                        '& fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.3)',
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
-                        },
-                      }
-                    }}
-                  />
-                  
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    sx={{ 
-                      mt: 4, 
-                      py: 2,
-                      background: 'linear-gradient(135deg, #00D4FF 0%, #5928E6 100%)',
-                      borderRadius: '12px',
-                      fontSize: '1.1rem',
-                      fontWeight: 600,
-                      textTransform: 'none',
-                      boxShadow: '0 4px 20px rgba(89, 40, 230, 0.4)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #00B8E6 0%, #4919C7 100%)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 6px 25px rgba(89, 40, 230, 0.6)'
-                      },
-                      transition: 'all 0.3s ease'
-                    }}
-                    onClick={onLogin}
-                    startIcon={<LaunchIcon />}
-                  >
-                    Enter DJ Studio
-                  </Button>
+                        textTransform: 'none'
+                      }}
+                    >
+                      Login
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      startIcon={<RadioIcon />}
+                      onClick={() => setShowRegister(true)}
+                      sx={{
+                        borderColor: '#2196F3',
+                        color: '#2196F3',
+                        fontWeight: 600,
+                        px: 4,
+                        py: 1.5,
+                        borderRadius: '12px',
+                        textTransform: 'none',
+                        '&:hover': {
+                          borderColor: '#FF4444',
+                          color: '#FF4444'
+                        }
+                      }}
+                    >
+                      Register
+                    </Button>
+                  </Box>
                   
                   <Typography variant="body2" sx={{ 
                     textAlign: 'center', 
@@ -749,14 +694,14 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                   py: 2.5,
                   fontSize: '1.2rem',
                   fontWeight: 600,
-                  background: 'linear-gradient(135deg, #00D4FF 0%, #5928E6 100%)',
+                  background: 'linear-gradient(135deg, #2196F3 0%, #FF4444 100%)',
                   borderRadius: '50px',
                   textTransform: 'none',
-                  boxShadow: '0 8px 30px rgba(89, 40, 230, 0.4)',
+                  boxShadow: '0 8px 30px rgba(33, 150, 243, 0.4)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #00B8E6 0%, #4919C7 100%)',
+                    background: 'linear-gradient(135deg, #1976D2 0%, #E63946 100%)',
                     transform: 'translateY(-3px)',
-                    boxShadow: '0 12px 40px rgba(89, 40, 230, 0.6)'
+                    boxShadow: '0 12px 40px rgba(33, 150, 243, 0.6)'
                   },
                   transition: 'all 0.3s ease'
                 }}
@@ -799,6 +744,35 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           </Box>
         </Container>
       </Box>
+
+      <Login 
+        open={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLogin={onLogin}
+        onSwitchToRegister={() => {
+          setShowLogin(false);
+          setShowRegister(true);
+        }}
+      />
+
+      <Register 
+        open={showRegister}
+        onClose={() => setShowRegister(false)}
+        onRegister={onLogin}
+        onSwitchToLogin={() => {
+          setShowRegister(false);
+          setShowLogin(true);
+        }}
+      />
+
+      <PricingPage 
+        open={showPricing}
+        onClose={() => setShowPricing(false)}
+        onGetStarted={() => {
+          setShowPricing(false);
+          setShowRegister(true);
+        }}
+      />
 
       <style>{`
         @keyframes float {

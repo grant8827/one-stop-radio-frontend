@@ -69,8 +69,8 @@ export const BACKEND_CONFIG = {
   // Python FastAPI Service (Authentication & Data Management)
   FASTAPI: {
     NAME: 'Python FastAPI Server',
-    PORT: 8002,
-    BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8002',
+    PORT: 8000,
+    BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
     ENDPOINTS: {
       // Health check
       HEALTH: '/api/health',

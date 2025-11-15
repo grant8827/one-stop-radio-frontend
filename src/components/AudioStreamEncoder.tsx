@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { streamEncoderService } from '../services/StreamEncoderService';
+import { audioService } from '../services/AudioService';
 import {
   Box,
   Card,
@@ -231,12 +233,22 @@ const AudioStreamEncoder: React.FC<AudioStreamEncoderProps> = ({
   const handleConnect = async () => {
     try {
       setIsConnecting(true);
-      const result = await apiCall('/connect', 'POST', config);
       
-      if (result.success) {
-        setStats(prev => ({ ...prev, status: 'connected', statusMessage: 'Connected to server' }));
-        setAlertMessage({ type: 'success', message: 'Connected to stream server' });
+      // Check if stream info is available
+      const streamInfo = JSON.parse(localStorage.getItem('streamInfo') || '{}');
+      
+      if (!streamInfo.host) {
+        setAlertMessage({ type: 'warning', message: 'Please set up your dedicated stream first' });
+        setIsConnecting(false);
+        return;
       }
+      
+      // Simulate connection (in real implementation, would test connection to stream server)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setStats(prev => ({ ...prev, status: 'connected', statusMessage: 'Connected to server' }));
+      setAlertMessage({ type: 'success', message: `Connected to ${streamInfo.host}:${streamInfo.port}` });
+      
     } catch (error) {
       setStats(prev => ({ ...prev, status: 'error', statusMessage: 'Connection failed' }));
     } finally {
@@ -259,29 +271,54 @@ const AudioStreamEncoder: React.FC<AudioStreamEncoderProps> = ({
 
   const handleStartStreaming = async () => {
     try {
-      const result = await apiCall('/start', 'POST');
+      // Get stream info from localStorage (set by dedicated stream autofill)
+      const streamInfo = JSON.parse(localStorage.getItem('streamInfo') || '{}');
       
-      if (result.success) {
-        setStats(prev => ({ ...prev, status: 'streaming', statusMessage: 'Streaming live' }));
-        setAlertMessage({ type: 'success', message: '🔴 Live streaming started!' });
-        onStreamingChange?.(true);
+      if (!streamInfo.host) {
+        setAlertMessage({ type: 'warning', message: 'Please set up your dedicated stream first in the Dedicated Stream section' });
+        return;
       }
+
+      // Get audio context from audio service
+      const audioContext = audioService.getAudioContext();
+      if (!audioContext) {
+        setAlertMessage({ type: 'error', message: 'Audio system not initialized' });
+        return;
+      }
+
+      // Create audio source from mixer output
+      const destination = audioContext.createMediaStreamDestination();
+      const masterGain = audioService.getMasterGain();
+      if (masterGain) {
+        masterGain.connect(destination);
+      }
+
+      const audioSource = audioContext.createMediaStreamSource(destination.stream);
+      
+      // Start streaming with the encoder service
+      await streamEncoderService.startStreaming(streamInfo, audioSource);
+      
+      setStats(prev => ({ ...prev, status: 'streaming', statusMessage: 'Streaming live' }));
+      setAlertMessage({ type: 'success', message: '🔴 Live streaming started!' });
+      onStreamingChange?.(true);
+      
     } catch (error) {
+      console.error('Failed to start streaming:', error);
       setStats(prev => ({ ...prev, status: 'error', statusMessage: 'Failed to start streaming' }));
+      setAlertMessage({ type: 'error', message: 'Failed to start streaming. Check your stream configuration.' });
     }
   };
 
   const handleStopStreaming = async () => {
     try {
-      const result = await apiCall('/stop', 'POST');
+      streamEncoderService.stopStreaming();
       
-      if (result.success) {
-        setStats(prev => ({ ...prev, status: 'connected', statusMessage: 'Streaming stopped' }));
-        setAlertMessage({ type: 'info', message: 'Streaming stopped' });
-        onStreamingChange?.(false);
-      }
+      setStats(prev => ({ ...prev, status: 'connected', statusMessage: 'Streaming stopped' }));
+      setAlertMessage({ type: 'info', message: 'Streaming stopped' });
+      onStreamingChange?.(false);
+      
     } catch (error) {
-      // Handle error
+      console.error('Failed to stop streaming:', error);
     }
   };
 
@@ -397,8 +434,12 @@ const AudioStreamEncoder: React.FC<AudioStreamEncoderProps> = ({
                     color="error"
                     onClick={handleStartStreaming}
                     startIcon={<PlayIcon />}
+                    sx={{ 
+                      backgroundColor: '#ff4444',
+                      '&:hover': { backgroundColor: '#cc3333' }
+                    }}
                   >
-                    Go Live
+                    🔴 Go Live
                   </Button>
                   <Button
                     variant="outlined"

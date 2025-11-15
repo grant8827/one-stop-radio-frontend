@@ -95,6 +95,7 @@ class BackendIntegrationService {
   constructor() {
     // Don't initialize services automatically to prevent connection errors
     // Services will be initialized on-demand when needed
+    console.log('🔧 BackendIntegrationService initialized - services will connect on-demand');
   }
 
   /**
@@ -800,6 +801,330 @@ class BackendIntegrationService {
     } catch (error) {
       console.error('❌ Error starting WebRTC capture:', error);
       return null;
+    }
+  }
+
+  // ===========================================
+  // COMPREHENSIVE DJ CONTROL METHODS
+  // ===========================================
+
+  /**
+   * Set channel volume
+   */
+  public async setChannelVolume(channelId: string, volume: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/volume`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} volume:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set channel EQ (bass, mid, treble)
+   */
+  public async setChannelEQ(channelId: string, eq: { bass: number; mid: number; treble: number }): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/eq`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eq)
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} EQ:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set channel gain
+   */
+  public async setChannelGain(channelId: string, gain: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/gain`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gain })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} gain:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set channel cue (headphone monitoring)
+   */
+  public async setChannelCue(channelId: string, enabled: boolean): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/cue`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} cue:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Seek to position in track
+   */
+  public async seekTrack(channelId: string, position: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/seek`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error seeking channel ${channelId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set track loop
+   */
+  public async setTrackLoop(channelId: string, enabled: boolean): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/loop`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} loop:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set track pitch/tempo
+   */
+  public async setTrackPitch(channelId: string, pitch: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/pitch`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pitch })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting channel ${channelId} pitch:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Get track position and duration
+   */
+  public async getTrackProgress(channelId: string): Promise<{ position: number; duration: number } | null> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/progress`);
+      const response = await fetch(url);
+      const data: ApiResponse<{ position: number; duration: number }> = await response.json();
+      
+      return data.success ? data.data || null : null;
+    } catch (error) {
+      console.error(`❌ Error getting channel ${channelId} progress:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get real-time audio levels
+   */
+  public async getAudioLevels(): Promise<{ master: { left: number; right: number }; channelA: { left: number; right: number }; channelB: { left: number; right: number }; microphone: { left: number; right: number } } | null> {
+    try {
+      const url = getServiceUrl('MEDIA', '/api/mixer/levels');
+      const response = await fetch(url);
+      const data: ApiResponse<any> = await response.json();
+      
+      return data.success ? data.data || null : null;
+    } catch (error) {
+      console.error('❌ Error getting audio levels:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set headphone volume
+   */
+  public async setHeadphoneVolume(volume: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', '/api/mixer/headphone/volume');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error('❌ Error setting headphone volume:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Set headphone cue mix (master/cue balance)
+   */
+  public async setHeadphoneCueMix(mix: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', '/api/mixer/headphone/cue-mix');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mix })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error('❌ Error setting headphone cue mix:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Load track from file path
+   */
+  public async loadTrackFromPath(channelId: string, filePath: string, trackInfo?: any): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/load-path`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath, trackInfo })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error loading track from path to channel ${channelId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Get track waveform data
+   */
+  public async getTrackWaveform(channelId: string): Promise<Float32Array | null> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/waveform`);
+      const response = await fetch(url);
+      const data: ApiResponse<{ waveform: number[] }> = await response.json();
+      
+      return data.success && data.data ? new Float32Array(data.data.waveform) : null;
+    } catch (error) {
+      console.error(`❌ Error getting channel ${channelId} waveform:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Set BPM sync
+   */
+  public async setBPMSync(channelId: string, enabled: boolean, targetBPM?: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/bpm-sync`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, targetBPM })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting BPM sync for channel ${channelId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Trigger hot cue
+   */
+  public async triggerHotCue(channelId: string, cueNumber: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/hot-cue/${cueNumber}`);
+      const response = await fetch(url, { method: 'POST' });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error triggering hot cue ${cueNumber} for channel ${channelId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set hot cue point
+   */
+  public async setHotCue(channelId: string, cueNumber: number, position: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/hot-cue/${cueNumber}/set`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position })
+      });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error setting hot cue ${cueNumber} for channel ${channelId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Clear hot cue point
+   */
+  public async clearHotCue(channelId: string, cueNumber: number): Promise<boolean> {
+    try {
+      const url = getServiceUrl('MEDIA', `/api/mixer/channel/${channelId}/hot-cue/${cueNumber}/clear`);
+      const response = await fetch(url, { method: 'POST' });
+      
+      const data: ApiResponse = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error(`❌ Error clearing hot cue ${cueNumber} for channel ${channelId}:`, error);
+      return false;
     }
   }
 

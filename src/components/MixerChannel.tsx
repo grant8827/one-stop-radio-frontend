@@ -200,6 +200,20 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             
             // Check if track finished for non-looping tracks
             if (actualPosition >= newDuration && !isLooping && prev.isPlaying) {
+              console.log(`🏁 MixerChannel: Track finished on channel ${channelId}, auto-stopping`);
+              
+              // AUTO-STOP: Stop the track when it completes
+              setTimeout(async () => {
+                try {
+                  const { audioService } = await import('../services/AudioService');
+                  const deckNumber = channelId === 'channelA' ? 1 : 2;
+                  await audioService.stopTrack(deckNumber);
+                  console.log(`✅ MixerChannel: Auto-stopped deck ${deckNumber}`);
+                } catch (error) {
+                  console.error(`❌ MixerChannel: Auto-stop error:`, error);
+                }
+              }, 100);
+              
               onStop?.();
               return { 
                 ...prev, 
@@ -311,8 +325,33 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             // We'll mark it as 'unknown' since we don't track the original method here
             return handleLoadFile(file, track.title, track.id, 'unknown');
           })
-          .then(() => {
+          .then(async () => {
             console.log(`✅ MixerChannel: Track "${track.title}" successfully loaded and marked as loaded`);
+            
+            // AUTO-PLAY: Start playing immediately after loading
+            console.log(`🎵 MixerChannel: Auto-playing track "${track.title}" on channel ${channelId}`);
+            
+            // Wait a moment for the audio to be fully loaded
+            setTimeout(async () => {
+              try {
+                const { audioService } = await import('../services/AudioService');
+                await audioService.initialize();
+                await audioService.resumeContext();
+                
+                const deckNumber = channelId === 'channelA' ? 1 : 2;
+                const success = await audioService.playPauseTrack(deckNumber);
+                
+                if (success) {
+                  setState(prev => ({ ...prev, isPlaying: true }));
+                  onPlayPause?.(true);
+                  console.log(`✅ MixerChannel: Auto-play started for "${track.title}"`);
+                } else {
+                  console.warn(`⚠️ MixerChannel: Auto-play failed for "${track.title}"`);
+                }
+              } catch (error) {
+                console.error(`❌ MixerChannel: Auto-play error for "${track.title}":`, error);
+              }
+            }, 500); // 500ms delay to ensure audio is ready
           })
           .catch(error => {
             console.error(`❌ Failed to auto-load track "${track.title}":`, error);
@@ -328,7 +367,7 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
         }));
       }
     }
-  }, [track, handleLoadFile, state.loadedTrackId, channelId]);
+  }, [track, handleLoadFile, state.loadedTrackId, channelId, onPlayPause]);
 
   // Notify parent of state changes
   React.useEffect(() => {
