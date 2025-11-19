@@ -298,7 +298,20 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
 
   // Auto-load track when assigned to channel
   React.useEffect(() => {
-    if (track && track.filePath && track.id !== state.loadedTrackId) {
+    if (track) {
+      console.log(`🎵 MixerChannel: Attempting to load track "${track.title}" to channel ${channelId}`);
+      console.log('🔍 Track data:', { id: track.id, title: track.title, filePath: track.filePath });
+      
+      if (!track.filePath) {
+        console.warn(`⚠️ Track "${track.title}" has no filePath, cannot load audio`);
+        // Still update the UI to show the track name
+        setState(prev => ({ 
+          ...prev, 
+          loadedFile: track.title,
+          loadedTrackId: track.id
+        }));
+        return;
+      }
       console.log(`MixerChannel: Auto-loading track "${track.title}" (ID: ${track.id}) into channel ${channelId}`);
       
       // Check if it's a URL or local file path
@@ -367,7 +380,7 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
         }));
       }
     }
-  }, [track, handleLoadFile, state.loadedTrackId, channelId, onPlayPause]);
+  }, [track, handleLoadFile, channelId, onPlayPause]);
 
   // Notify parent of state changes
   React.useEffect(() => {

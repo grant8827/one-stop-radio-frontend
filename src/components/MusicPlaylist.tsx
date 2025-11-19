@@ -174,17 +174,18 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
 
   const handleTrackDoubleClick = (track: Track) => {
     console.log(`🖱️ MusicPlaylist: Double-click detected on track: "${track.title}"`);
+    console.log('🔍 MusicPlaylist: Track details:', {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      filePath: track.filePath,
+      hasFilePath: !!track.filePath,
+      filePathType: typeof track.filePath
+    });
     console.log('🎚️ Current deck states:', { 
       deckA: currentDeckA?.title || 'empty', 
       deckB: currentDeckB?.title || 'empty' 
     });
-    
-    // Check track data first
-    if (!track.filePath) {
-      console.error('❌ MusicPlaylist: Cannot double-click load - track has no file path:', track);
-      alert(`❌ Cannot load "${track.title}"\n\nThis track doesn't have a valid audio file.`);
-      return;
-    }
     
     // Double-click loads to the first available deck, or deck A by default
     const targetDeck = !currentDeckA ? 'A' : !currentDeckB ? 'B' : 'A';
@@ -192,8 +193,12 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
     
     if (onLoadToDeck) {
       console.log('🔧 MusicPlaylist: Calling onLoadToDeck callback...');
-      onLoadToDeck(track, targetDeck);
-      console.log('✅ MusicPlaylist: onLoadToDeck called successfully');
+      try {
+        onLoadToDeck(track, targetDeck);
+        console.log('✅ MusicPlaylist: onLoadToDeck called successfully');
+      } catch (error) {
+        console.error('❌ MusicPlaylist: Error in onLoadToDeck:', error);
+      }
     } else {
       console.error('❌ MusicPlaylist: onLoadToDeck callback is not available!');
       alert('❌ Track loading system not connected. Please check console for details.');
@@ -214,11 +219,13 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
   };
 
   const handleLoadToDeckA = (track: Track) => {
+    console.log(`🎵 MusicPlaylist: Context menu - Loading "${track.title}" to Deck A`);
     onLoadToDeck(track, 'A');
     handleCloseContextMenu();
   };
 
   const handleLoadToDeckB = (track: Track) => {
+    console.log(`🎵 MusicPlaylist: Context menu - Loading "${track.title}" to Deck B`);
     onLoadToDeck(track, 'B');
     handleCloseContextMenu();
   };
@@ -582,6 +589,11 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
                     }
                   ];
                   
+                  console.log('🎵 Generated sample tracks with filePaths:', sampleTracks.map(t => ({ 
+                    title: t.title, 
+                    filePath: t.filePath?.substring(0, 50) + '...' 
+                  })));
+                  
                   // Remove any existing sample tracks first
                   const filteredTracks = tracks.filter(t => !t.id.startsWith('sample-'));
                   const newTracks = [...filteredTracks, ...sampleTracks];
@@ -792,9 +804,14 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
                       e.stopPropagation();
                       console.log('🧪 TEST: Force loading to Deck A');
                       console.log('🧪 TEST: Track data:', track);
+                      console.log('🧪 TEST: onLoadToDeck available:', !!onLoadToDeck);
                       if (onLoadToDeck) {
-                        onLoadToDeck(track, 'A');
-                        console.log('🧪 TEST: onLoadToDeck called for Deck A');
+                        try {
+                          onLoadToDeck(track, 'A');
+                          console.log('✅ TEST: onLoadToDeck called successfully for Deck A');
+                        } catch (error) {
+                          console.error('❌ TEST: Error calling onLoadToDeck:', error);
+                        }
                       } else {
                         console.error('❌ TEST: onLoadToDeck callback not available');
                         alert('❌ onLoadToDeck callback not available');
@@ -809,9 +826,14 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
                       e.stopPropagation();
                       console.log('🧪 TEST: Force loading to Deck B');
                       console.log('🧪 TEST: Track data:', track);
+                      console.log('🧪 TEST: onLoadToDeck available:', !!onLoadToDeck);
                       if (onLoadToDeck) {
-                        onLoadToDeck(track, 'B');
-                        console.log('🧪 TEST: onLoadToDeck called for Deck B');
+                        try {
+                          onLoadToDeck(track, 'B');
+                          console.log('✅ TEST: onLoadToDeck called successfully for Deck B');
+                        } catch (error) {
+                          console.error('❌ TEST: Error calling onLoadToDeck:', error);
+                        }
                       } else {
                         console.error('❌ TEST: onLoadToDeck callback not available');
                         alert('❌ onLoadToDeck callback not available');

@@ -1,26 +1,26 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  // Proxy Django API requests (auth, stations, streams) to Django backend
+  // Proxy FastAPI requests (auth, stations, streams) to FastAPI backend
   app.use(
     '/api/v1',
     createProxyMiddleware({
-      target: 'http://localhost:8001',
+      target: 'http://localhost:8004',
       changeOrigin: true,
       logLevel: 'debug',
       onError: (err, req, res) => {
-        console.error('Django Backend Proxy Error:', err.message);
+        console.error('FastAPI Backend Proxy Error:', err.message);
         res.writeHead(500, {
           'Content-Type': 'application/json',
         });
         res.end(JSON.stringify({
           success: false,
-          error: 'Django Backend Connection Error: ' + err.message,
-          service: 'Django API (port 8001)'
+          error: 'FastAPI Backend Connection Error: ' + err.message,
+          service: 'FastAPI API (port 8004)'
         }));
       },
       onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Django API] ${req.method} ${req.url} -> http://localhost:8001`);
+        console.log(`[FastAPI API] ${req.method} ${req.url} -> http://localhost:8004`);
       }
     })
   );
@@ -29,7 +29,7 @@ module.exports = function(app) {
   app.use(
     ['/api/audio', '/api/video', '/api/session', '/api/listeners', '/api/chat', '/api/media', '/api/streaming', '/api/health', '/api/endpoints'],
     createProxyMiddleware({
-      target: 'http://localhost:5000',
+      target: 'http://localhost:5001',
       changeOrigin: true,
       logLevel: 'debug',
       onError: (err, req, res) => {
@@ -40,11 +40,11 @@ module.exports = function(app) {
         res.end(JSON.stringify({
           success: false,
           error: 'Node.js Backend Connection Error: ' + err.message,
-          service: 'Node.js Signaling (port 5000)'
+          service: 'Node.js Signaling (port 5001)'
         }));
       },
       onProxyReq: (proxyReq, req, res) => {
-        console.log(`[Node.js API] ${req.method} ${req.url} -> http://localhost:5000`);
+        console.log(`[Node.js API] ${req.method} ${req.url} -> http://localhost:5001`);
       }
     })
   );

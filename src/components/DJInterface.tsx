@@ -25,6 +25,7 @@ const Mixer = lazy(() => import('./Mixer'));
 const VideoPlayer = lazy(() => import('./VideoPlayer'));
 const TrackChannelDiagnostics = lazy(() => import('./TrackChannelDiagnostics'));
 const MusicPlaylist = lazy(() => import('./MusicPlaylist'));
+const MusicLibrary = lazy(() => import('./MusicLibrary'));
 const BackendStatusIndicator = lazy(() => import('./BackendStatusIndicator'));
 interface DJInterfaceState {
   isStreaming: boolean;
@@ -38,6 +39,27 @@ interface DJInterfaceState {
 
 const DJInterface: React.FC = () => {
   const { deckA, deckB, loadToDeck } = usePlaylist();
+  
+  // Create adapter function for MusicLibrary
+  const handleLoadToDeck = (trackId: string) => {
+    // Create a Track object from the trackId
+    // In a real implementation, this would fetch the full track data
+    const track = {
+      id: trackId,
+      title: `Track ${trackId}`,
+      artist: 'Unknown Artist',
+      duration: 180,
+      dateAdded: new Date(),
+      playCount: 0,
+      bpm: 120, // Add BPM for compatibility
+      genre: 'Electronic' // Add genre
+    };
+    
+    console.log(`🎵 DJInterface: Loading track ${trackId} to Deck A`);
+    
+    // Load to deck A by default (you could add UI to let user choose)
+    loadToDeck(track, 'A');
+  };
   
   const [state, setState] = useState<DJInterfaceState>({
     isStreaming: false,
@@ -488,9 +510,10 @@ const DJInterface: React.FC = () => {
 
 
       
-      {/* Music Playlist Panel */}
+      {/* Music Library and Playlist Panel */}
       <Row className="mt-3">
-        <Col xs={12}>
+        {/* Music Playlist - Left Side */}
+        <Col lg={6} md={6} xs={12}>
           <Paper 
             elevation={3} 
             sx={{ 
@@ -500,11 +523,57 @@ const DJInterface: React.FC = () => {
               overflow: 'hidden'
             }}
           >
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: '#ffffff', 
+                p: 2, 
+                borderBottom: '1px solid #333',
+                backgroundColor: '#2a2a2a'
+              }}
+            >
+              📻 Current Playlist
+            </Typography>
             <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Playlist...</div>}>
               <MusicPlaylist
                 onLoadToDeck={loadToDeck}
                 currentDeckA={deckA}
                 currentDeckB={deckB}
+              />
+            </Suspense>
+          </Paper>
+        </Col>
+
+        {/* Music Library with Instant Play - Right Side */}
+        <Col lg={6} md={6} xs={12}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              height: '450px', 
+              backgroundColor: '#1a1a1a',
+              borderRadius: '12px',
+              overflow: 'hidden'
+            }}
+          >
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: '#ffffff', 
+                p: 2, 
+                borderBottom: '1px solid #333',
+                backgroundColor: '#2a2a2a'
+              }}
+            >
+              {deckA ? `🎵 Now Playing: ${deckA.title}` : '🎵 Instant Play'}
+            </Typography>
+            <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Music Library...</div>}>
+              <MusicLibrary
+                onLoadDeck={handleLoadToDeck}
+                currentDeckA={deckA?.id}
+                currentDeckB={deckB?.id}
+                loadingDeck={null}
+                showCompatibility={true}
+                compatibilityBpm={deckA?.bpm || deckB?.bpm}
               />
             </Suspense>
           </Paper>
