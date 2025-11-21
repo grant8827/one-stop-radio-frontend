@@ -24,10 +24,13 @@ import {
   Mic as MicIcon,
   BugReport as TestIcon,
   Stream as StreamIcon,
-  CloudUpload as DedicatedStreamIcon
+  CloudUpload as DedicatedStreamIcon,
+  CardMembership as PricingIcon
 } from '@mui/icons-material';
 import AudioSettings from './AudioSettings';
 import AudioDeviceSettings from './AudioDeviceSettings';
+import PricingModal from './PricingModal';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 interface NavigationProps {
   currentView: 'dashboard' | 'streams' | 'dedicated-stream' | 'mixer' | 'encoder' | 'video' | 'device-test' | 'diagnostics';
@@ -49,6 +52,7 @@ const Navigation: React.FC<NavigationProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [audioSettingsOpen, setAudioSettingsOpen] = useState(false);
   const [deviceSettingsOpen, setDeviceSettingsOpen] = useState(false);
+  const { tier, showPricingModal, setShowPricingModal, setSubscription, trialDaysRemaining } = useSubscription();
 
   const getTerminologyLabels = () => {
     switch (terminology) {
@@ -100,6 +104,27 @@ const Navigation: React.FC<NavigationProps> = ({
   const handleLogout = () => {
     handleClose();
     onLogout?.();
+  };
+
+  const handleSelectPlan = (tier: 'basic' | 'pro' | 'premium', billingPeriod: 'monthly' | 'yearly') => {
+    setSubscription(tier, billingPeriod);
+    console.log(`Selected plan: ${tier} (${billingPeriod})`);
+    // In production, this would trigger payment flow
+  };
+
+  const getTierLabel = () => {
+    switch (tier) {
+      case 'trial':
+        return `Trial: ${trialDaysRemaining} days left`;
+      case 'basic':
+        return 'Basic Plan';
+      case 'pro':
+        return 'Pro Plan';
+      case 'premium':
+        return 'Premium Plan';
+      default:
+        return 'Free - Upgrade';
+    }
   };
 
   return (
@@ -251,6 +276,28 @@ const Navigation: React.FC<NavigationProps> = ({
             </Box>
           )}
 
+          {/* Subscription Badge */}
+          <Chip
+            icon={<PricingIcon sx={{ color: '#ffffff !important' }} />}
+            label={getTierLabel()}
+            onClick={() => setShowPricingModal(true)}
+            sx={{
+              backgroundColor: 
+                tier === 'premium' ? '#FF9800' : 
+                tier === 'pro' ? '#2196F3' : 
+                tier === 'basic' ? '#4CAF50' : 
+                tier === 'trial' ? (trialDaysRemaining <= 7 ? '#FF9800' : '#9C27B0') :
+                '#666',
+              color: '#ffffff',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              animation: tier === 'trial' && trialDaysRemaining <= 7 ? 'pulse 2s infinite' : 'none',
+              '&:hover': {
+                opacity: 0.9
+              }
+            }}
+          />
+
           {/* Notifications */}
           <IconButton sx={{ color: '#cccccc' }}>
             <NotificationsIcon />
@@ -359,6 +406,13 @@ const Navigation: React.FC<NavigationProps> = ({
       <AudioSettings 
         open={audioSettingsOpen} 
         onClose={() => setAudioSettingsOpen(false)} 
+      />
+      
+      {/* Pricing Modal */}
+      <PricingModal
+        open={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSelectPlan={handleSelectPlan}
       />
     </AppBar>
   );

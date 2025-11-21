@@ -15,6 +15,7 @@ import TwitchIcon from '@mui/icons-material/Tv';
 // Import our services
 import { audioService } from '../services/AudioService';
 import { usePlaylist } from '../contexts/PlaylistContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { webSocketService } from '../services/WebSocketService';
 import { mediaServerService } from '../services/MediaServerService';
 import type { ListenerStats, StreamStatus } from '../services/WebSocketService';
@@ -39,6 +40,7 @@ interface DJInterfaceState {
 
 const DJInterface: React.FC = () => {
   const { deckA, deckB, loadToDeck } = usePlaylist();
+  const { tier, hasFeatureAccess, setShowPricingModal } = useSubscription();
   
   // Create adapter function for MusicLibrary
   const handleLoadToDeck = (track: any) => {
@@ -380,21 +382,34 @@ const DJInterface: React.FC = () => {
               {/* Live Control Buttons */}
               <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                 {!state.isStreaming && (
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleGoLive}
-                    sx={{
-                      bgcolor: '#4caf50',
-                      '&:hover': { 
-                        bgcolor: '#388e3c' 
-                      },
-                      fontWeight: 'bold',
-                      flex: 1
-                    }}
-                  >
-                    ▶️ Go Live
-                  </Button>
+                  <>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={() => {
+                        if (!hasFeatureAccess('streaming_url')) {
+                          setShowPricingModal(true);
+                          return;
+                        }
+                        handleGoLive();
+                      }}
+                      sx={{
+                        bgcolor: '#4caf50',
+                        '&:hover': { 
+                          bgcolor: '#388e3c' 
+                        },
+                        fontWeight: 'bold',
+                        flex: 1
+                      }}
+                    >
+                      ▶️ Go Live {!hasFeatureAccess('streaming_url') && '🔒'}
+                    </Button>
+                    {!hasFeatureAccess('streaming_url') && (
+                      <Alert severity="info" sx={{ width: '100%', mt: 1 }}>
+                        Streaming requires Pro plan or higher. Click "Go Live 🔒" to upgrade.
+                      </Alert>
+                    )}
+                  </>
                 )}
                 
                 {state.isStreaming && (

@@ -13,8 +13,10 @@ import ServiceDiagnostics from './components/ServiceDiagnostics';
 import Navigation from './components/Navigation';
 import { AudioActivityProvider } from './contexts/AudioActivityContext';
 import { PlaylistProvider } from './contexts/PlaylistContext';
+import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import { Container } from 'react-bootstrap';
 import { audioService } from './services/AudioService';
+import TrialExpiredBlocker from './components/TrialExpiredBlocker';
 
 // Debug environment variables in production
 console.log('🔍 OneStopRadio Environment Debug:');
@@ -117,23 +119,57 @@ function App() {
 
   return (
     <div className="App">
+      <SubscriptionProvider>
+        <AppContent
+          currentView={currentView}
+          onViewChange={handleViewChange}
+          isStreaming={isStreaming}
+          listenerCount={listenerCount}
+          terminology={terminology}
+          onLogout={handleLogout}
+          renderCurrentView={renderCurrentView}
+        />
+      </SubscriptionProvider>
+    </div>
+  );
+}
+
+// Inner component to access subscription context
+const AppContent: React.FC<{
+  currentView: any;
+  onViewChange: any;
+  isStreaming: boolean;
+  listenerCount: number;
+  terminology: 'dj' | 'radio' | 'broadcaster';
+  onLogout: () => void;
+  renderCurrentView: () => React.ReactNode;
+}> = ({ currentView, onViewChange, isStreaming, listenerCount, terminology, onLogout, renderCurrentView }) => {
+  const { isTrialExpired, tier, setShowPricingModal } = useSubscription();
+
+  return (
+    <>
       <AudioActivityProvider>
         <PlaylistProvider>
           <Navigation
             currentView={currentView}
-            onViewChange={handleViewChange}
+            onViewChange={onViewChange}
             isStreaming={isStreaming}
             listenerCount={listenerCount}
             terminology={terminology}
-            onLogout={handleLogout}
+            onLogout={onLogout}
           />
           <Container fluid>
             {renderCurrentView()}
           </Container>
         </PlaylistProvider>
       </AudioActivityProvider>
-    </div>
+      
+      {/* Show blocker when trial expires and user hasn't selected a paid plan */}
+      {isTrialExpired && tier === 'free' && (
+        <TrialExpiredBlocker onUpgrade={() => setShowPricingModal(true)} />
+      )}
+    </>
   );
-}
+};
 
 export default App;

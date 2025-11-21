@@ -33,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import Login from './Login';
 import Register from './Register';
-import PricingPage from './PricingPage';
+import PricingModal from './PricingModal';
 
 const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -765,10 +765,11 @@ const HomePage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         }}
       />
 
-      <PricingPage 
+      <PricingModal 
         open={showPricing}
         onClose={() => setShowPricing(false)}
-        onGetStarted={() => {
+        onSelectPlan={(tier, billingPeriod) => {
+          console.log(`Selected ${tier} plan (${billingPeriod})`);
           setShowPricing(false);
           setShowRegister(true);
         }}

@@ -12,7 +12,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  LinearProgress
+  LinearProgress,
+  Tooltip
 } from '@mui/material';
 import {
   LibraryMusic,
@@ -20,8 +21,10 @@ import {
   Delete,
   CloudUpload,
   PlayArrow,
-  Pause
+  Pause,
+  Lock
 } from '@mui/icons-material';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 
 // Mock tracks data for testing instant play cards
@@ -229,6 +232,8 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
   compatibilityBpm,
   onWebSocketMessage
 }) => {
+  const { tier, hasFeatureAccess, setShowPricingModal } = useSubscription();
+  
   // Component state
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
@@ -384,6 +389,23 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
 
   // File upload handling with real metadata extraction
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Check if user has access to upload tracks
+    const uploadedTracksCount = tracks.filter(t => t.genre === 'Uploaded').length;
+    const maxTracks = hasFeatureAccess('unlimited_tracks') ? 10 : 10; // Basic tier has 10 tracks (as specified)
+    
+    if (!hasFeatureAccess('instant_play')) {
+      setShowPricingModal(true);
+      event.target.value = ''; // Reset input
+      return;
+    }
+    
+    if (uploadedTracksCount >= maxTracks && !hasFeatureAccess('unlimited_tracks')) {
+      alert(`You've reached the maximum of ${maxTracks} instant play tracks for your plan. Upgrade to Pro for unlimited tracks.`);
+      setShowPricingModal(true);
+      event.target.value = ''; // Reset input
+      return;
+    }
+    
     const file = event.target.files?.[0];
     if (file && file.type.startsWith('audio/')) {
       const fileUrl = URL.createObjectURL(file);
@@ -508,7 +530,19 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
         <Typography variant="h6" fontWeight="bold">
           Music Library
         </Typography>
+        {tier === 'basic' && (
+          <Tooltip title="Basic plan: 10 instant play tracks. Upgrade to Pro for unlimited tracks.">
+            <Lock sx={{ fontSize: 16, color: '#999', ml: 1 }} />
+          </Tooltip>
+        )}
       </Box>
+
+      {/* Tier Info Banner */}
+      {tier === 'free' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Instant Play requires Basic plan or higher. <Button size="small" onClick={() => setShowPricingModal(true)}>Upgrade Now</Button>
+        </Alert>
+      )}
 
       {/* Error Display */}
       {error && (
