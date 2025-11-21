@@ -211,7 +211,7 @@ interface Track {
 
 
 interface MusicLibraryProps {
-  onLoadDeck: (trackId: string) => void;
+  onLoadDeck: (track: Track) => void;
   currentDeckA?: string | null;
   currentDeckB?: string | null;
   loadingDeck?: 'A' | 'B' | null;
@@ -711,7 +711,10 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
       >
         <MenuItem onClick={() => {
           if (contextMenu) {
-            onLoadDeck(contextMenu.trackId);
+            const track = tracks.find(t => t.id === contextMenu.trackId);
+            if (track) {
+              onLoadDeck(track);
+            }
           }
           handleContextMenuClose();
         }}>

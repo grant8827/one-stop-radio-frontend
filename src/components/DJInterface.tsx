@@ -41,24 +41,26 @@ const DJInterface: React.FC = () => {
   const { deckA, deckB, loadToDeck } = usePlaylist();
   
   // Create adapter function for MusicLibrary
-  const handleLoadToDeck = (trackId: string) => {
-    // Create a Track object from the trackId
-    // In a real implementation, this would fetch the full track data
-    const track = {
-      id: trackId,
-      title: `Track ${trackId}`,
-      artist: 'Unknown Artist',
-      duration: 180,
-      dateAdded: new Date(),
-      playCount: 0,
-      bpm: 120, // Add BPM for compatibility
-      genre: 'Electronic' // Add genre
+  const handleLoadToDeck = (track: any) => {
+    console.log(`🎵 DJInterface: Loading "${track.title}" by ${track.artist} to Deck A`);
+    
+    // Convert MusicLibrary Track to Playlist Track format
+    const playlistTrack = {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      duration: track.duration,
+      dateAdded: new Date(track.created_at || Date.now()),
+      playCount: track.play_count || 0,
+      bpm: track.bpm,
+      genre: track.genre,
+      album: track.album,
+      key: track.key,
+      filePath: track.file_path
     };
     
-    console.log(`🎵 DJInterface: Loading track ${trackId} to Deck A`);
-    
     // Load to deck A by default (you could add UI to let user choose)
-    loadToDeck(track, 'A');
+    loadToDeck(playlistTrack, 'A');
   };
   
   const [state, setState] = useState<DJInterfaceState>({
