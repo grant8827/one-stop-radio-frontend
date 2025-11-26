@@ -549,7 +549,19 @@ class AudioService {
         console.log(`▶️ Starting playback for channel ${channelId}, buffer length: ${channel.audioBuffer.length} samples`);
         
         try {
-          // Ensure we create buffer source from the same context
+          // CRITICAL FIX: Always stop and clean up old buffer source before creating new one
+          // AudioBufferSourceNode can only be used once!
+          if (channel.bufferSource) {
+            try {
+              channel.bufferSource.disconnect();
+              channel.bufferSource.onended = null;
+            } catch (e) {
+              // Ignore disconnect errors
+            }
+            channel.bufferSource = null;
+          }
+          
+          // Create NEW buffer source from the same context (required for replay)
           channel.bufferSource = this.audioContext.createBufferSource();
           channel.bufferSource.buffer = channel.audioBuffer;
           
@@ -590,7 +602,7 @@ class AudioService {
           
           channel.bufferSource.connect(channel.gainNode);
           
-          // Start playback
+          // Start playback - OPTIMIZED for instant response
           if (channel.isLooping) {
             // For looping tracks, start normally with loop enabled
             channel.bufferSource.start(0, startOffset);

@@ -529,12 +529,12 @@ const DJInterface: React.FC = () => {
       
       {/* Music Library and Playlist Panel */}
       <Row className="mt-3">
-        {/* Music Playlist - Left Side */}
+        {/* Music Playlist Storage - Left Side (Equal Width) */}
         <Col lg={6} md={6} xs={12}>
           <Paper 
             elevation={3} 
             sx={{ 
-              height: '400px', 
+              height: '450px', 
               backgroundColor: '#1a1a1a',
               borderRadius: '12px',
               overflow: 'hidden'
@@ -549,7 +549,7 @@ const DJInterface: React.FC = () => {
                 backgroundColor: '#2a2a2a'
               }}
             >
-              📻 Current Playlist
+              📻 Music Playlist Storage
             </Typography>
             <Suspense fallback={<div style={{color: '#fff', padding: '20px'}}>Loading Playlist...</div>}>
               <MusicPlaylist
@@ -561,7 +561,7 @@ const DJInterface: React.FC = () => {
           </Paper>
         </Col>
 
-        {/* Music Library with Instant Play - Right Side */}
+        {/* Music Library with Instant Play - Right Side (Equal Width) */}
         <Col lg={6} md={6} xs={12}>
           <Paper 
             elevation={3} 

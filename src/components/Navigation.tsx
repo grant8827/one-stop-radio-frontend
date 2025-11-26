@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -112,7 +112,8 @@ const Navigation: React.FC<NavigationProps> = ({
     // In production, this would trigger payment flow
   };
 
-  const getTierLabel = () => {
+  // Memoize tier label to prevent unnecessary recalculations
+  const tierLabel = useMemo(() => {
     switch (tier) {
       case 'trial':
         return `Trial: ${trialDaysRemaining} days left`;
@@ -125,7 +126,26 @@ const Navigation: React.FC<NavigationProps> = ({
       default:
         return 'Free - Upgrade';
     }
-  };
+  }, [tier, trialDaysRemaining]);
+
+  // Memoize tier color to prevent unnecessary recalculations
+  const tierColor = useMemo(() => {
+    if (tier === 'trial') {
+      return trialDaysRemaining <= 7 ? '#FF9800' : '#9C27B0';
+    }
+    switch (tier) {
+      case 'free':
+        return '#757575';
+      case 'basic':
+        return '#4caf50';
+      case 'pro':
+        return '#2196f3';
+      case 'premium':
+        return '#ff6b35';
+      default:
+        return '#757575';
+    }
+  }, [tier, trialDaysRemaining]);
 
   return (
     <AppBar 
@@ -276,18 +296,13 @@ const Navigation: React.FC<NavigationProps> = ({
             </Box>
           )}
 
-          {/* Subscription Badge */}
+          {/* Subscription Badge - OPTIMIZED */}
           <Chip
             icon={<PricingIcon sx={{ color: '#ffffff !important' }} />}
-            label={getTierLabel()}
+            label={tierLabel}
             onClick={() => setShowPricingModal(true)}
             sx={{
-              backgroundColor: 
-                tier === 'premium' ? '#FF9800' : 
-                tier === 'pro' ? '#2196F3' : 
-                tier === 'basic' ? '#4CAF50' : 
-                tier === 'trial' ? (trialDaysRemaining <= 7 ? '#FF9800' : '#9C27B0') :
-                '#666',
+              backgroundColor: tierColor,
               color: '#ffffff',
               fontWeight: 'bold',
               cursor: 'pointer',

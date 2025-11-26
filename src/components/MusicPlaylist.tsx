@@ -17,10 +17,6 @@ import {
   InputAdornment,
   Menu,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Tooltip
 } from '@mui/material';
 import {
@@ -30,7 +26,8 @@ import {
   DragIndicator as DragIcon,
   GetApp as LoadToDeckIcon,
   CloudUpload as UploadIcon,
-  MoreVert as MoreIcon
+  MoreVert as MoreIcon,
+  Add
 } from '@mui/icons-material';
 
 export interface Track {
@@ -90,7 +87,6 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
   
   // UI state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   const [draggedTrack, setDraggedTrack] = useState<Track | null>(null);
   
@@ -318,7 +314,6 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    setShowUploadDialog(false);
   };
 
 
@@ -433,14 +428,29 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Upload Music">
-            <IconButton 
-              onClick={() => setShowUploadDialog(true)}
-              sx={{ color: '#ffeb3b' }}
-            >
-              <UploadIcon />
-            </IconButton>
-          </Tooltip>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="audio/*"
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+          />
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => fileInputRef.current?.click()}
+            sx={{ 
+              bgcolor: '#ffeb3b',
+              color: '#000',
+              fontWeight: 'bold',
+              '&:hover': {
+                bgcolor: '#ffd700'
+              }
+            }}
+          >
+            Add Track
+          </Button>
           
           <Tooltip title="Generate Working Sample Tracks for Testing">
             <IconButton 
@@ -884,38 +894,6 @@ const MusicPlaylist: React.FC<MusicPlaylistProps> = ({
           Remove from Playlist
         </MenuItem>
       </Menu>
-
-      {/* Upload Dialog */}
-      <Dialog open={showUploadDialog} onClose={() => setShowUploadDialog(false)}>
-        <DialogTitle>Upload Music Files</DialogTitle>
-        <DialogContent>
-          <Box sx={{ textAlign: 'center', p: 3 }}>
-            <UploadIcon sx={{ fontSize: 64, color: '#ffeb3b', mb: 2 }} />
-            <Typography gutterBottom>
-              Select audio files to add to your playlist
-            </Typography>
-            <Button
-              variant="contained"
-              component="label"
-              sx={{ bgcolor: '#ffeb3b', color: '#000' }}
-            >
-              Choose Files
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="audio/*"
-                hidden
-                onChange={handleFileUpload}
-              />
-            </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowUploadDialog(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
-
 
     </Box>
   );

@@ -45,37 +45,35 @@ function App() {
     setCurrentView(view);
   };
 
-  // Initialize AudioService when app starts
+  // Initialize AudioService when app starts - OPTIMIZED FOR INSTANT RESPONSE
   useEffect(() => {
     const initAudioService = async () => {
       try {
-        console.log('🎵 App: Initializing AudioService...');
-        // Reduced timeout to prevent app-level freezing
+        console.log('🎵 App: Initializing AudioService (background)...');
+        // Initialize with very short timeout to prevent any blocking
         const initPromise = audioService.initialize();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('App AudioService initialization timeout')), 1500)
+          setTimeout(() => reject(new Error('AudioService timeout - continuing')), 500)
         );
         
         const success = await Promise.race([initPromise, timeoutPromise]);
         if (success) {
-          console.log('✅ AudioService initialized successfully');
-          // Create default channels (non-blocking)
-          setTimeout(() => {
+          console.log('✅ AudioService ready');
+          // Create channels lazily - only when needed
+          requestIdleCallback(() => {
             audioService.createChannel('A');
             audioService.createChannel('B');
-          }, 100);
-        } else {
-          console.warn('⚠️ AudioService initialization returned false, continuing...');
+          });
         }
       } catch (error) {
-        console.warn('⚠️ AudioService initialization failed, app will continue with limited audio features:', error);
-        // App continues to function even if audio init fails
+        // Silent fail - audio will initialize on first use
+        console.log('⚠️ AudioService lazy init - will initialize on demand');
       }
     };
 
     if (isLoggedIn) {
-      // Initialize audio service in background to prevent UI blocking
-      setTimeout(() => initAudioService(), 100);
+      // Run in next tick to not block login UI
+      requestIdleCallback(() => initAudioService());
     }
   }, [isLoggedIn]);
 

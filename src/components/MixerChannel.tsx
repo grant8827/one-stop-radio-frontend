@@ -339,32 +339,8 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
             return handleLoadFile(file, track.title, track.id, 'unknown');
           })
           .then(async () => {
-            console.log(`✅ MixerChannel: Track "${track.title}" successfully loaded and marked as loaded`);
-            
-            // AUTO-PLAY: Start playing immediately after loading
-            console.log(`🎵 MixerChannel: Auto-playing track "${track.title}" on channel ${channelId}`);
-            
-            // Wait a moment for the audio to be fully loaded
-            setTimeout(async () => {
-              try {
-                const { audioService } = await import('../services/AudioService');
-                await audioService.initialize();
-                await audioService.resumeContext();
-                
-                const deckNumber = channelId === 'channelA' ? 1 : 2;
-                const success = await audioService.playPauseTrack(deckNumber);
-                
-                if (success) {
-                  setState(prev => ({ ...prev, isPlaying: true }));
-                  onPlayPause?.(true);
-                  console.log(`✅ MixerChannel: Auto-play started for "${track.title}"`);
-                } else {
-                  console.warn(`⚠️ MixerChannel: Auto-play failed for "${track.title}"`);
-                }
-              } catch (error) {
-                console.error(`❌ MixerChannel: Auto-play error for "${track.title}":`, error);
-              }
-            }, 500); // 500ms delay to ensure audio is ready
+            console.log(`✅ MixerChannel: Track "${track.title}" successfully loaded to channel ${channelId}`);
+            console.log(`ℹ️ Track ready - press play button to start playback`);
           })
           .catch(error => {
             console.error(`❌ Failed to auto-load track "${track.title}":`, error);
@@ -567,11 +543,23 @@ const MixerChannel: React.FC<MixerChannelProps> = ({
   };
 
   // Handle waveform seeking
-  const handleWaveformSeek = (percentage: number) => {
+  const handleWaveformSeek = async (percentage: number) => {
     if (state.duration > 0) {
-      // Convert percentage (0-100) to time position
-      const newPosition = (percentage / 100) * state.duration;
-      setState(prev => ({ ...prev, position: newPosition }));
+      try {
+        // Convert percentage (0-100) to time position
+        const newPosition = (percentage / 100) * state.duration;
+        
+        // Update local state immediately for instant UI feedback
+        setState(prev => ({ ...prev, position: newPosition }));
+        
+        // Seek audio in AudioService
+        const { audioService } = await import('../services/AudioService');
+        await audioService.seekToPosition(channelId, newPosition);
+        
+        console.log(`⏭️ Seeked to ${newPosition.toFixed(2)}s (${percentage.toFixed(1)}%) on channel ${channelId}`);
+      } catch (error) {
+        console.error('Failed to seek:', error);
+      }
     }
   };
 

@@ -130,7 +130,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   };
 
-  // Check trial expiration and update tier
+  // Check trial expiration and update tier - OPTIMIZED
   useEffect(() => {
     const checkTrial = () => {
       const info = getTrialInfo();
@@ -142,7 +142,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
     
     checkTrial();
-    const interval = setInterval(checkTrial, 60000); // Check every minute
+    // Check every 5 minutes instead of every minute to reduce CPU usage
+    const interval = setInterval(checkTrial, 300000);
     
     return () => clearInterval(interval);
   }, [tier]);

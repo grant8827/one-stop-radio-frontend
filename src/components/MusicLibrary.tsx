@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  LinearProgress,
   Tooltip
 } from '@mui/material';
 import {
@@ -21,7 +20,6 @@ import {
   Delete,
   CloudUpload,
   PlayArrow,
-  Pause,
   Lock
 } from '@mui/icons-material';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -248,10 +246,6 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
 
   // Audio playback state
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -262,15 +256,13 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     setError(null);
     
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Load tracks from localStorage first
+      // Load tracks from localStorage immediately - NO DELAY for instant response
       const savedTracks = localStorage.getItem('onestopradio-instant-play-tracks');
       if (savedTracks) {
         setTracks(JSON.parse(savedTracks));
       } else {
-        // Load all mock tracks as initial set
+        // Load mock tracks without audio generation - deck will handle audio
+        console.log('🎵 Loading instant play cards...');
         setTracks([...MOCK_TRACKS]);
         localStorage.setItem('onestopradio-instant-play-tracks', JSON.stringify(MOCK_TRACKS));
       }
@@ -297,110 +289,25 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     setContextMenu(null);
   };
 
-  const handleAddTrack = () => {
-    setUploadModalOpen(true);
-    handleContextMenuClose();
-  };
-
   const handleRemoveTrack = () => {
     if (contextMenu) {
       setTracks(prev => prev.filter(track => track.id !== contextMenu.trackId));
-      // If currently playing track is removed, stop playback
+      // Clear currently playing indicator if removed track was loaded
       if (currentlyPlaying === contextMenu.trackId) {
-        handleStopPlayback();
+        setCurrentlyPlaying(null);
       }
     }
     handleContextMenuClose();
   };
 
-  // Audio playback functions with real HTML5 Audio
-  const handlePlayTrack = async (trackId: string) => {
-    const track = tracks.find(t => t.id === trackId);
-    if (!track) return;
-
-    // Stop current playback
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.removeEventListener('timeupdate', updateProgress);
-      audioElement.removeEventListener('loadedmetadata', updateDuration);
-      audioElement.removeEventListener('ended', handleTrackEnded);
-    }
-
-    // Create new audio element with real file
-    const newAudio = new Audio();
-    if (track.file_path) {
-      newAudio.src = track.file_path;
-    }
-    newAudio.preload = 'metadata';
-    
-    // Add event listeners
-    newAudio.addEventListener('timeupdate', updateProgress);
-    newAudio.addEventListener('loadedmetadata', updateDuration);
-    newAudio.addEventListener('ended', handleTrackEnded);
-    
-    if (!track.file_path) {
-      console.error('No file path available for track:', track.title);
-      return;
-    }
-
-    setAudioElement(newAudio);
-    setCurrentlyPlaying(trackId);
-    setProgress(0);
-    
-    try {
-      await newAudio.play();
-      setIsPlaying(true);
-    } catch (error) {
-      console.error('Failed to play audio:', error);
-      setIsPlaying(false);
-      setCurrentlyPlaying(null);
-    }
-  };
-
-  const handleStopPlayback = () => {
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.removeEventListener('timeupdate', updateProgress);
-      audioElement.removeEventListener('loadedmetadata', updateDuration);
-      audioElement.removeEventListener('ended', handleTrackEnded);
-    }
-    setCurrentlyPlaying(null);
-    setIsPlaying(false);
-    setProgress(0);
-  };
-
-  const updateProgress = useCallback(() => {
-    if (audioElement && !audioElement.paused) {
-      setProgress(audioElement.currentTime);
-    }
-  }, [audioElement]);
-
-  const updateDuration = useCallback(() => {
-    if (audioElement && audioElement.duration) {
-      setDuration(audioElement.duration);
-    }
-  }, [audioElement]);
-
-  const handleTrackEnded = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentlyPlaying(null);
-    setProgress(0);
-  }, []);
-
+  // Audio playback functions with real HTML5 Audio - OPTIMIZED FOR INSTANT RESPONSE
   // File upload handling with real metadata extraction
+  // State to track which card slot is being uploaded to
+  const [uploadingToSlot, setUploadingToSlot] = useState<number | null>(null);
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     // Check if user has access to upload tracks
-    const uploadedTracksCount = tracks.filter(t => t.genre === 'Uploaded').length;
-    const maxTracks = hasFeatureAccess('unlimited_tracks') ? 10 : 10; // Basic tier has 10 tracks (as specified)
-    
     if (!hasFeatureAccess('instant_play')) {
-      setShowPricingModal(true);
-      event.target.value = ''; // Reset input
-      return;
-    }
-    
-    if (uploadedTracksCount >= maxTracks && !hasFeatureAccess('unlimited_tracks')) {
-      alert(`You've reached the maximum of ${maxTracks} instant play tracks for your plan. Upgrade to Pro for unlimited tracks.`);
       setShowPricingModal(true);
       event.target.value = ''; // Reset input
       return;
@@ -433,9 +340,12 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
         }
         
         setTracks(prev => {
-          // Find the first available slot (1-10)
-          let targetIndex = prev.findIndex(track => track.genre === 'Uploaded' || track.title.includes('Summer Vibes') || track.title.includes('Midnight Drive'));
-          if (targetIndex === -1) targetIndex = prev.length < 10 ? prev.length : 0;
+          // Use the clicked card slot if available, otherwise find first empty
+          let targetIndex = uploadingToSlot !== null ? uploadingToSlot : 
+                           prev.findIndex(track => track.file_path && !track.file_path.startsWith('blob:'));
+          
+          // If no empty slots, use first slot
+          if (targetIndex === -1) targetIndex = 0;
           
           const newTrack: Track = {
             id: `track_${String(targetIndex + 1).padStart(3, '0')}`,
@@ -455,7 +365,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           };
           
           const updatedTracks = [...prev];
-          updatedTracks[targetIndex] = newTrack; // Replace track at this position
+          updatedTracks[targetIndex] = newTrack; // Replace track at this specific slot
           
           // Save to localStorage
           localStorage.setItem('onestopradio-instant-play-tracks', JSON.stringify(updatedTracks));
@@ -463,15 +373,18 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           return updatedTracks;
         });
         setUploadModalOpen(false);
+        setUploadingToSlot(null);
       });
       
       audio.addEventListener('error', () => {
         console.error('Failed to load audio metadata');
         
         setTracks(prev => {
-          // Find the first available slot for replacement
-          let targetIndex = prev.findIndex(track => track.genre === 'Uploaded' || track.title.includes('Summer Vibes') || track.title.includes('Midnight Drive'));
-          if (targetIndex === -1) targetIndex = prev.length < 10 ? prev.length : 0;
+          // Use the clicked card slot if available, otherwise find first empty
+          let targetIndex = uploadingToSlot !== null ? uploadingToSlot : 
+                           prev.findIndex(track => track.file_path && !track.file_path.startsWith('blob:'));
+          
+          if (targetIndex === -1) targetIndex = 0;
           
           const newTrack: Track = {
             id: `track_${String(targetIndex + 1).padStart(3, '0')}`,
@@ -491,7 +404,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           };
           
           const updatedTracks = [...prev];
-          updatedTracks[targetIndex] = newTrack; // Replace track at this position
+          updatedTracks[targetIndex] = newTrack; // Replace track at this specific slot
           
           // Save to localStorage
           localStorage.setItem('onestopradio-instant-play-tracks', JSON.stringify(updatedTracks));
@@ -499,6 +412,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           return updatedTracks;
         });
         setUploadModalOpen(false);
+        setUploadingToSlot(null);
       });
     }
   };
@@ -508,17 +422,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     fetchTracks();
   }, [fetchTracks]);
 
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioElement) {
-        audioElement.pause();
-        audioElement.removeEventListener('timeupdate', updateProgress);
-        audioElement.removeEventListener('loadedmetadata', updateDuration);
-        audioElement.removeEventListener('ended', handleTrackEnded);
-      }
-    };
-  }, [audioElement, updateProgress, updateDuration, handleTrackEnded]);
+  // No cleanup needed - tracks use file paths, not blobs
 
 
 
@@ -526,9 +430,9 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 1 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <LibraryMusic color="primary" />
-        <Typography variant="h6" fontWeight="bold">
-          Music Library
+        <LibraryMusic sx={{ color: '#ffffff' }} />
+        <Typography variant="h6" fontWeight="bold" sx={{ color: '#ffffff' }}>
+          Instant Play
         </Typography>
         {tier === 'basic' && (
           <Tooltip title="Basic plan: 10 instant play tracks. Upgrade to Pro for unlimited tracks.">
@@ -620,25 +524,19 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
                   onContextMenu={(e) => handleContextMenu(e, track.id)}
                   onClick={(e) => {
                     e.preventDefault();
-                    if (currentlyPlaying === track.id && isPlaying) {
-                      if (audioElement) {
-                        audioElement.pause();
-                        setIsPlaying(false);
-                      }
-                    } else if (currentlyPlaying === track.id && !isPlaying) {
-                      if (audioElement) {
-                        audioElement.play();
-                        setIsPlaying(true);
-                      }
-                    } else {
-                      handlePlayTrack(track.id);
-                    }
+                    
+                    // Load track to deck for DJ mixing
+                    console.log(`🎵 InstantPlay Card: Loading "${track.title}" to deck`);
+                    onLoadDeck(track);
+                    
+                    // Visual feedback - mark as loaded to deck
+                    setCurrentlyPlaying(track.id);
                   }}
                 >
-                  {/* Play/Pause Button */}
+                  {/* Load to Deck Button */}
                   <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                     {currentlyPlaying === track.id ? 
-                      (isPlaying ? <Pause sx={{ fontSize: 20 }} /> : <PlayArrow sx={{ fontSize: 20 }} />) :
+                      <LibraryMusic sx={{ fontSize: 20, color: '#4caf50' }} /> :
                       <PlayArrow sx={{ fontSize: 20 }} />
                     }
                   </Box>
@@ -696,24 +594,19 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
                     </Typography>
                   </Box>
                   
-                  {/* Progress Bar (if playing) */}
+                  {/* Active indicator */}
                   <Box sx={{ width: '100%', mb: 1, height: '16px', display: 'flex', alignItems: 'center' }}>
                     {currentlyPlaying === track.id && (
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={(progress / duration) * 100} 
-                        sx={{ height: 4, borderRadius: 2, width: '100%' }}
-                      />
+                      <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                        ▶ Loaded to Deck
+                      </Typography>
                     )}
                   </Box>
                   
                   {/* Duration and Key */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="caption" fontWeight="bold">
-                      {currentlyPlaying === track.id ? 
-                        `${Math.floor(progress / 60)}:${Math.floor(progress % 60).toString().padStart(2, '0')} / ${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}` :
-                        `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}`
-                      }
+                      {`${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}`}
                     </Typography>
                     <Typography variant="caption" fontWeight="bold" 
                       sx={{ 
@@ -755,9 +648,16 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           <LibraryMusic sx={{ mr: 1 }} />
           Load to Deck A
         </MenuItem>
-        <MenuItem onClick={handleAddTrack}>
+        <MenuItem onClick={() => {
+          if (contextMenu) {
+            const trackIndex = tracks.findIndex(t => t.id === contextMenu.trackId);
+            setUploadingToSlot(trackIndex);
+            setUploadModalOpen(true);
+          }
+          handleContextMenuClose();
+        }}>
           <Add sx={{ mr: 1 }} />
-          Add Track
+          Replace with New Track
         </MenuItem>
         <MenuItem onClick={handleRemoveTrack}>
           <Delete sx={{ mr: 1 }} />

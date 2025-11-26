@@ -360,6 +360,35 @@ const Waveform: React.FC<WaveformProps> = ({
             </Typography>
           </Box>
           
+          {/* Time Remaining (Countdown) */}
+          {trackLoaded && songDuration > 0 && (
+            <>
+              <Typography variant="caption" sx={{ 
+                color: '#666',
+                fontSize: '0.7rem',
+                mx: 0.5
+              }}>
+                •
+              </Typography>
+              <Box sx={{
+                background: 'rgba(244, 67, 54, 0.15)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid rgba(244, 67, 54, 0.3)'
+              }}>
+                <Typography variant="caption" sx={{ 
+                  color: isPlaying ? '#f44336' : '#ff7961', 
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+                }}>
+                  -{formatTime(Math.max(0, songDuration - internalCurrentTime))}
+                </Typography>
+              </Box>
+            </>
+          )}
+          
           {/* Progress Percentage Display */}
           <Box sx={{
             background: 'rgba(0, 0, 0, 0.5)',
@@ -989,17 +1018,61 @@ const Waveform: React.FC<WaveformProps> = ({
 
       {/* Enhanced Progress Bar with Real-time Buffer Indication */}
       {trackLoaded && (
-        <Box sx={{ 
-          width: '100%', 
-          height: '3px', 
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          borderRadius: '2px',
-          mt: 1,
-          overflow: 'hidden',
-          position: 'relative',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
-        }}>
+        <Box sx={{ position: 'relative', mt: 1 }}>
+          {/* Time markers */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            px: 0.5,
+            mb: 0.5
+          }}>
+            <Typography variant="caption" sx={{ 
+              color: '#666', 
+              fontFamily: 'monospace',
+              fontSize: '0.6rem'
+            }}>
+              0:00
+            </Typography>
+            <Typography variant="caption" sx={{ 
+              color: '#666', 
+              fontFamily: 'monospace',
+              fontSize: '0.6rem'
+            }}>
+              {formatTime(songDuration * 0.25)}
+            </Typography>
+            <Typography variant="caption" sx={{ 
+              color: '#666', 
+              fontFamily: 'monospace',
+              fontSize: '0.6rem'
+            }}>
+              {formatTime(songDuration * 0.5)}
+            </Typography>
+            <Typography variant="caption" sx={{ 
+              color: '#666', 
+              fontFamily: 'monospace',
+              fontSize: '0.6rem'
+            }}>
+              {formatTime(songDuration * 0.75)}
+            </Typography>
+            <Typography variant="caption" sx={{ 
+              color: '#666', 
+              fontFamily: 'monospace',
+              fontSize: '0.6rem'
+            }}>
+              {formatTime(songDuration)}
+            </Typography>
+          </Box>
+          
+          <Box sx={{ 
+            width: '100%', 
+            height: '3px', 
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            borderRadius: '2px',
+            overflow: 'hidden',
+            position: 'relative',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
+          }}>
           {/* Real-time Buffer Progress Bar */}
           {(bufferProgress > 0 || realTimeBuffer > 0) && (
             <Box
@@ -1053,6 +1126,7 @@ const Waveform: React.FC<WaveformProps> = ({
               }}
             />
           )}
+          </Box>
         </Box>
       )}
     </Box>
