@@ -7,20 +7,16 @@ import {
   CircularProgress,
   Alert,
   Menu,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Tooltip
+  Tooltip,
+  Button
 } from '@mui/material';
 import {
   LibraryMusic,
   Add,
   Delete,
-  CloudUpload,
   PlayArrow,
-  Lock
+  Lock,
+  Pause
 } from '@mui/icons-material';
 import { useSubscription } from '../contexts/SubscriptionContext';
 
@@ -128,7 +124,7 @@ const MOCK_TRACKS = [
     title: "Neon Nights",
     artist: "Retro Wave",
     album: "80s Revival",
-    genre: "Synthwave",
+    genre: "Electro Pop",
     duration: 256,
     bpm: 115,
     key: "7",
@@ -246,9 +242,8 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
 
   // Audio playback state
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
-
-  // Upload modal state
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [audioElements, setAudioElements] = useState<{ [key: string]: HTMLAudioElement }>({});
+  const [progress, setProgress] = useState<{ [key: string]: number }>({});
 
   // Load all tracks (simplified without filters)
   const fetchTracks = useCallback(async () => {
@@ -300,10 +295,64 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     handleContextMenuClose();
   };
 
-  // Audio playback functions with real HTML5 Audio - OPTIMIZED FOR INSTANT RESPONSE
-  // File upload handling with real metadata extraction
   // State to track which card slot is being uploaded to
   const [uploadingToSlot, setUploadingToSlot] = useState<number | null>(null);
+
+  // Play/pause audio directly from the card
+  const handlePlayPause = (track: Track) => {
+    // Stop currently playing track if different
+    if (currentlyPlaying && currentlyPlaying !== track.id) {
+      const currentAudio = audioElements[currentlyPlaying];
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      setProgress(prev => ({ ...prev, [currentlyPlaying]: 0 }));
+    }
+
+    // Toggle play/pause for clicked track
+    if (currentlyPlaying === track.id) {
+      // Pause current track
+      const audio = audioElements[track.id];
+      if (audio) {
+        audio.pause();
+      }
+      setCurrentlyPlaying(null);
+    } else {
+      // Play new track
+      let audio = audioElements[track.id];
+      
+      if (!audio) {
+        // Create new audio element
+        audio = new Audio(track.file_path);
+        audio.preload = 'auto';
+        
+        // Update progress as track plays
+        audio.addEventListener('timeupdate', () => {
+          if (audio.duration) {
+            const progressPercent = (audio.currentTime / audio.duration) * 100;
+            setProgress(prev => ({ ...prev, [track.id]: progressPercent }));
+          }
+        });
+        
+        audio.addEventListener('ended', () => {
+          setCurrentlyPlaying(null);
+          setProgress(prev => ({ ...prev, [track.id]: 0 }));
+        });
+        
+        setAudioElements(prev => ({ ...prev, [track.id]: audio }));
+      }
+      
+      audio.play().catch(err => {
+        console.error('Failed to play audio:', err);
+        setCurrentlyPlaying(null);
+      });
+      
+      setCurrentlyPlaying(track.id);
+    }
+  };
+
+  // File upload handling with real metadata extraction
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     // Check if user has access to upload tracks
@@ -347,12 +396,15 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           // If no empty slots, use first slot
           if (targetIndex === -1) targetIndex = 0;
           
+          // Preserve the original track's genre/color for visual consistency
+          const originalGenre = prev[targetIndex]?.genre || 'Uploaded';
+          
           const newTrack: Track = {
             id: `track_${String(targetIndex + 1).padStart(3, '0')}`,
             title: title || file.name.replace(/\.[^/.]+$/, ""),
             artist: artist,
-            album: "Uploaded",
-            genre: "Uploaded", 
+            album: "My Uploads",
+            genre: originalGenre, // Keep original card color
             duration: Math.floor(audio.duration) || 180,
             bpm: 120,
             key: String(targetIndex + 1), // Use slot number as key
@@ -372,7 +424,6 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           
           return updatedTracks;
         });
-        setUploadModalOpen(false);
         setUploadingToSlot(null);
       });
       
@@ -386,12 +437,15 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           
           if (targetIndex === -1) targetIndex = 0;
           
+          // Preserve the original track's genre/color for visual consistency
+          const originalGenre = prev[targetIndex]?.genre || 'Uploaded';
+          
           const newTrack: Track = {
             id: `track_${String(targetIndex + 1).padStart(3, '0')}`,
             title: file.name.replace(/\.[^/.]+$/, ""),
             artist: "Unknown Artist",
-            album: "Uploaded",
-            genre: "Uploaded",
+            album: "My Uploads",
+            genre: originalGenre, // Keep original card color
             duration: 180,
             bpm: 120,
             key: String(targetIndex + 1), // Use slot number as key
@@ -411,7 +465,6 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           
           return updatedTracks;
         });
-        setUploadModalOpen(false);
         setUploadingToSlot(null);
       });
     }
@@ -422,7 +475,15 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
     fetchTracks();
   }, [fetchTracks]);
 
-  // No cleanup needed - tracks use file paths, not blobs
+  // Cleanup audio elements on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(audioElements).forEach(audio => {
+        audio.pause();
+        audio.src = '';
+      });
+    };
+  }, [audioElements]);
 
 
 
@@ -512,31 +573,28 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
                       track.genre === 'Lofi Hip Hop' ? '#ccffcc' :
                       track.genre === 'Acid Techno' ? '#ff99ff' :
                       track.genre === 'Ambient Techno' ? '#ccccff' :
+                      track.genre === 'Electro Pop' ? '#ffb3e6' :
                       track.genre === 'Dubstep' ? '#ffaaaa' :
                       track.genre === 'Nu Jazz' ? '#ffffaa' :
                       track.genre === 'Tropical House' ? '#aaffaa' :
                       track.genre === 'Uploaded' ? '#e1bee7' :
                       '#f5f5f5',
                     color: '#000',
-                    border: currentlyPlaying === track.id ? '3px solid #4caf50' : 
-                           (currentDeckA === track.id || currentDeckB === track.id ? '2px solid #1976d2' : 'none')
+                    border: currentlyPlaying === track.id ? '3px solid #4caf50' : 'none'
                   }}
                   onContextMenu={(e) => handleContextMenu(e, track.id)}
                   onClick={(e) => {
                     e.preventDefault();
                     
-                    // Load track to deck for DJ mixing
-                    console.log(`🎵 InstantPlay Card: Loading "${track.title}" to deck`);
-                    onLoadDeck(track);
-                    
-                    // Visual feedback - mark as loaded to deck
-                    setCurrentlyPlaying(track.id);
+                    // Play audio directly from the card
+                    console.log(`🎵 InstantPlay Card: Playing "${track.title}"`);
+                    handlePlayPause(track);
                   }}
                 >
-                  {/* Load to Deck Button */}
+                  {/* Play/Pause Icon */}
                   <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                     {currentlyPlaying === track.id ? 
-                      <LibraryMusic sx={{ fontSize: 20, color: '#4caf50' }} /> :
+                      <Pause sx={{ fontSize: 20, color: '#4caf50' }} /> :
                       <PlayArrow sx={{ fontSize: 20 }} />
                     }
                   </Box>
@@ -594,13 +652,30 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
                     </Typography>
                   </Box>
                   
-                  {/* Active indicator */}
+                  {/* Progress bar */}
                   <Box sx={{ width: '100%', mb: 1, height: '16px', display: 'flex', alignItems: 'center' }}>
-                    {currentlyPlaying === track.id && (
-                      <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-                        ▶ Loaded to Deck
-                      </Typography>
-                    )}
+                    {currentlyPlaying === track.id && progress[track.id] !== undefined ? (
+                      <Box sx={{ width: '100%' }}>
+                        <Box 
+                          sx={{ 
+                            width: '100%', 
+                            height: 4, 
+                            backgroundColor: 'rgba(0,0,0,0.1)',
+                            borderRadius: 2,
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <Box 
+                            sx={{ 
+                              width: `${progress[track.id]}%`, 
+                              height: '100%', 
+                              backgroundColor: '#4caf50',
+                              transition: 'width 0.1s linear'
+                            }} 
+                          />
+                        </Box>
+                      </Box>
+                    ) : null}
                   </Box>
                   
                   {/* Duration and Key */}
@@ -646,18 +721,22 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
           handleContextMenuClose();
         }}>
           <LibraryMusic sx={{ mr: 1 }} />
-          Load to Deck A
+          Load to Deck
         </MenuItem>
         <MenuItem onClick={() => {
           if (contextMenu) {
             const trackIndex = tracks.findIndex(t => t.id === contextMenu.trackId);
             setUploadingToSlot(trackIndex);
-            setUploadModalOpen(true);
+            // Trigger file input directly
+            const fileInput = document.getElementById('upload-file-context') as HTMLInputElement;
+            if (fileInput) {
+              fileInput.click();
+            }
           }
           handleContextMenuClose();
         }}>
           <Add sx={{ mr: 1 }} />
-          Replace with New Track
+          Upload Track from PC
         </MenuItem>
         <MenuItem onClick={handleRemoveTrack}>
           <Delete sx={{ mr: 1 }} />
@@ -665,42 +744,14 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({
         </MenuItem>
       </Menu>
 
-      {/* Upload Modal */}
-      <Dialog open={uploadModalOpen} onClose={() => setUploadModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CloudUpload />
-            Upload New Track
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ textAlign: 'center', py: 3 }}>
-            <input
-              accept="audio/*"
-              style={{ display: 'none' }}
-              id="upload-file"
-              type="file"
-              onChange={handleFileUpload}
-            />
-            <label htmlFor="upload-file">
-              <Button
-                variant="contained"
-                component="span"
-                startIcon={<CloudUpload />}
-                sx={{ mb: 2 }}
-              >
-                Choose Audio File
-              </Button>
-            </label>
-            <Typography variant="body2" color="text.secondary">
-              Supported formats: MP3, WAV, FLAC, AAC
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUploadModalOpen(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Hidden file input for context menu upload */}
+      <input
+        accept="audio/*"
+        style={{ display: 'none' }}
+        id="upload-file-context"
+        type="file"
+        onChange={handleFileUpload}
+      />
     </Box>
   );
 };
