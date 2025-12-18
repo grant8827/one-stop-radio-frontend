@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup API Test</title>
+</head>
+<body>
+    <h1>Signup API Test</h1>
+    <button onclick="testSignupAPI()">Test Signup API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testSignupAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test user data
+                const userData = {
+                    first_name: 'Test',
+                    last_name: 'User',
+                    email: 'testuser' + Date.now() + '@example.com', // Unique email
+                    password: 'password123',
+                    password_confirmation: 'password123',
+                    role_id: 4, // Renter role
+                    phone: '555-0123'
+                };
+                
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <h2>API Response:</h2>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Success:</strong> ${data.success}</p>
+                    <p><strong>Message:</strong> ${data.message}</p>
+                    ${data.points_awarded ? `<p><strong>Points Awarded:</strong> ${data.points_awarded}</p>` : ''}
+                    <h3>Full Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                if (data.success) {
+                    console.log('Signup successful:', data);
+                } else {
+                    console.log('Signup failed:', data);
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <h2>Error:</h2>
+                    <p>${error.message}</p>
+                `;
+                console.error('API Test Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Points API Direct</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Test Points API Direct</h1>
+    <p>This will test the Points API directly from the browser to see if caching is the issue.</p>
+    
+    <div id="output"></div>
+    
+    <button onclick="testPointsAPI()">Test Points API</button>
+    <button onclick="clearCache()">Clear All Browser Cache</button>
+    
+    <script>
+    function log(message) {
+        const output = document.getElementById('output');
+        output.innerHTML += '<p>' + message + '</p>';
+        console.log(message);
+    }
+    
+    function clearCache() {
+        // Clear localStorage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Try to clear service worker cache if it exists
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        
+        // Clear browser cache (user needs to do this manually)
+        log('🧹 Browser storage cleared! Please also manually clear browser cache (Cmd+Shift+Delete on Mac, Ctrl+Shift+Delete on Windows)');
+    }
+    
+    function testPointsAPI() {
+        const output = document.getElementById('output');
+        output.innerHTML = '<h3>Testing Points API...</h3>';
+        
+        // Get token from localStorage
+        const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+        log('📋 Token found: ' + (token ? 'Yes' : 'No'));
+        
+        if (!token) {
+            log('❌ No auth token found. Please login first.');
+            return;
+        }
+        
+        // Make API request with cache-busting
+        const cacheBuster = '?_cb=' + new Date().getTime();
+        const url = 'http://localhost:8000/api/dashboard/points' + cacheBuster;
+        
+        log('🎯 Making request to: ' + url);
+        
+        $.ajax({
+            url: url,
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            },
+            cache: false, // Disable jQuery caching
+            success: function(response) {
+                log('✅ API Response received');
+                log('📊 Status: ' + response.status);
+                
+                if (response.status && response.data) {
+                    const pointsData = response.data.data || response.data;
+                    log('💰 Current Balance (from API): ' + pointsData.current_balance);
+                    log('📈 Points History Count: ' + (pointsData.points_history ? pointsData.points_history.length : 0));
+                    
+                    // Show each transaction's balance_after
+                    if (pointsData.points_history) {
+                        pointsData.points_history.forEach((transaction, index) => {
+                            log('   Transaction ' + index + ': balance_after = ' + transaction.balance_after + ', description = ' + transaction.activity);
+                        });
+                    }
+                    
+                    log('🎯 THE NET VALUE SHOULD BE: ' + pointsData.current_balance);
+                } else {
+                    log('❌ API returned invalid response structure');
+                }
+                
+                log('📋 Full Response: ' + JSON.stringify(response, null, 2));
+            },
+            error: function(xhr, status, error) {
+                log('❌ API Error: ' + error);
+                log('📋 Status: ' + xhr.status);
+                log('📋 Response: ' + xhr.responseText);
+            }
+        });
+    }
+    </script>
+</body>
+</html>

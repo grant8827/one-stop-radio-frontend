@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Personality Form Submission</title>
+    <script>
+        async function testPersonalitySubmission() {
+            const testData = {
+                personality: {
+                    communicationStyle: 'direct',
+                    socialLevel: 'extrovert',
+                    cleanlinessLevel: 'very_clean',
+                    noiseLevel: 'quiet',
+                    scheduleType: 'early_bird',
+                    guestsPolicy: 'moderate',
+                    sharedSpaces: 'collaborative',
+                    personalityTypes: ['organizer', 'social']
+                },
+                preferences: {
+                    age_range: '20-30',
+                    gender_preference: 'any',
+                    occupation: 'student',
+                    lifestyle: 'active'
+                },
+                contact: {
+                    phone: '555-123-4567',
+                    email: 'test@example.com'
+                }
+            };
+
+            console.log('Submitting personality data:', testData);
+
+            try {
+                const response = await fetch('http://localhost:8000/api/roommate-finder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer test-token'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                const result = await response.json();
+                
+                console.log('Response Status:', response.status);
+                console.log('Response Data:', result);
+
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = 
+                        '<div style="color: green;">✅ SUCCESS: Data saved to database!</div>' +
+                        '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        '<div style="color: red;">❌ ERROR: ' + response.status + '</div>' +
+                        '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                document.getElementById('result').innerHTML = 
+                    '<div style="color: red;">❌ NETWORK ERROR: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Personality Form Submission</h1>
+    <button onclick="testPersonalitySubmission()" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer;">
+        Test Submit Personality Data
+    </button>
+    <div id="result" style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; background: #f9f9f9;"></div>
+</body>
+</html>

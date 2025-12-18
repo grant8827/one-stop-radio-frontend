@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Code Validation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Referral Code Validation Test</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Test Configuration</h3>
+        <p><strong>API URL:</strong> <span id="apiUrl">https://rentalhist-backend-production.up.railway.app/api</span></p>
+        <p><strong>Test Method:</strong> Compare frontend vs backend validation</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Manual Test</h3>
+        <p>Enter a custom referral code to test validation:</p>
+        <input type="text" id="testCode" placeholder="Enter code (e.g., WHITECODE)" maxlength="8">
+        <button onclick="testReferralCode()">Test Validation</button>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🤖 Automated Tests</h3>
+        <button onclick="runAutomatedTests()">Run All Tests</button>
+        <div id="automatedResults"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://rentalhist-backend-production.up.railway.app/api';
+        
+        async function testReferralCode() {
+            const code = document.getElementById('testCode').value.toUpperCase();
+            const resultsDiv = document.getElementById('testResults');
+            
+            if (!code || code.length < 6 || code.length > 8) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Frontend Validation Failed</h4>
+                        <p>Code must be 6-8 characters long</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<p>Testing... Please wait</p>';
+            
+            try {
+                // Get auth token from localStorage
+                const token = localStorage.getItem('rh_token');
+                
+                if (!token) {
+                    resultsDiv.innerHTML = `
+                        <div class="result error">
+                            <h4>❌ Authentication Required</h4>
+                            <p>Please log in first to test referral code validation</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Test with backend API
+                const response = await fetch(`${API_BASE_URL}/referral/code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        referral_code: code,
+                        mode: 'custom'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                const statusClass = response.ok ? 'success' : 'error';
+                const statusIcon = response.ok ? '✅' : '❌';
+                
+                resultsDiv.innerHTML = `
+                    <div class="result ${statusClass}">
+                        <h4>${statusIcon} Backend Validation Result</h4>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Success:</strong> ${data.success}</p>
+                        <p><strong>Message:</strong> ${data.message || 'No message'}</p>
+                        ${data.errors ? `<pre>${JSON.stringify(data.errors, null, 2)}</pre>` : ''}
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function runAutomatedTests() {
+            const resultsDiv = document.getElementById('automatedResults');
+            const token = localStorage.getItem('rh_token');
+            
+            if (!token) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Authentication Required</h4>
+                        <p>Please log in first to run automated tests</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<p>Running automated tests... Please wait</p>';
+            
+            const testCodes = [
+                { code: 'WHITEOUT', expected: 'rejected', reason: 'Contains "white"' },
+                { code: 'BLACKCAT', expected: 'rejected', reason: 'Contains "black"' },
+                { code: 'HELLFIRE', expected: 'rejected', reason: 'Contains "hell"' },
+                { code: 'FRIEND99', expected: 'accepted', reason: 'No restricted words' },
+                { code: 'WELCOME1', expected: 'accepted', reason: 'No restricted words' },
+                { code: 'GAYCODE1', expected: 'rejected', reason: 'Contains "gay"' }
+            ];
+            
+            let results = '<h4>🧪 Automated Test Results:</h4>';
+            
+            for (const test of testCodes) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/referral/code`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            referral_code: test.code,
+                            mode: 'custom'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    const actualResult = response.ok ? 'accepted' : 'rejected';
+                    const testPassed = actualResult === test.expected;
+                    const icon = testPassed ? '✅' : '❌';
+                    const statusClass = testPassed ? 'success' : 'error';
+                    
+                    results += `
+                        <div class="result ${statusClass}" style="margin: 10px 0; padding: 10px;">
+                            <strong>${icon} ${test.code}</strong><br>
+                            Expected: ${test.expected} (${test.reason})<br>
+                            Actual: ${actualResult}<br>
+                            Message: ${data.message || 'No message'}<br>
+                            ${testPassed ? '✅ PASS' : '❌ FAIL'}
+                        </div>
+                    `;
+                    
+                    // Small delay between requests
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                } catch (error) {
+                    results += `
+                        <div class="result error">
+                            <strong>❌ ${test.code}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            resultsDiv.innerHTML = results;
+        }
+    </script>
+</body>
+</html>

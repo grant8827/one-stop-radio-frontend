@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Code Persistence Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Referral Code Persistence Test</h1>
+    
+    <div class="section info">
+        <h3>📋 Test Scenario</h3>
+        <p>This tests the flow: Create referral code → Logout → Login → Should see existing code page</p>
+    </div>
+
+    <div class="section">
+        <h3>🔍 Current State Check</h3>
+        <button onclick="checkCurrentState()">Check Current State</button>
+        <div id="currentState"></div>
+    </div>
+
+    <div class="section">
+        <h3>🎯 Simulate Login Flow</h3>
+        <button onclick="simulateLoginFlow()">Simulate User Login</button>
+        <div id="loginFlow"></div>
+    </div>
+
+    <div class="section">
+        <h3>🔧 localStorage Management</h3>
+        <button onclick="clearLocalStorage()">Clear localStorage</button>
+        <button onclick="setTestUserData()">Set Test User Data</button>
+        <div id="localStorageInfo"></div>
+    </div>
+
+    <script>
+        function checkCurrentState() {
+            const div = document.getElementById('currentState');
+            
+            // Check authentication
+            const token = localStorage.getItem('rh_token');
+            const userData = localStorage.getItem('rh_user');
+            
+            let userObj = {};
+            try {
+                userObj = JSON.parse(userData || '{}');
+            } catch (e) {
+                userObj = {};
+            }
+            
+            div.innerHTML = `
+                <div class="info">
+                    <h4>🔍 Current Authentication State</h4>
+                    <p><strong>Token:</strong> ${token ? '✅ Present' : '❌ Missing'}</p>
+                    <p><strong>User Data:</strong> ${userData ? '✅ Present' : '❌ Missing'}</p>
+                    <p><strong>Referral Code in localStorage:</strong> ${userObj.referral_code || '❌ Not found'}</p>
+                    
+                    <h4>📝 Raw Data:</h4>
+                    <pre>rh_token: ${token ? token.substring(0, 30) + '...' : 'null'}
+rh_user: ${userData || 'null'}</pre>
+                </div>
+            `;
+        }
+        
+        async function simulateLoginFlow() {
+            const div = document.getElementById('loginFlow');
+            const token = localStorage.getItem('rh_token');
+            
+            if (!token) {
+                div.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Not Authenticated</h4>
+                        <p>Please log in first to test the referral code flow</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            div.innerHTML = '<p>Testing referral code fetch after login...</p>';
+            
+            try {
+                // Simulate what happens when ReferallCode component loads
+                const response = await fetch('https://rentalhist-backend-production.up.railway.app/api/referral/code', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                // Simulate frontend logic
+                let expectedPage = 'Unknown';
+                let reasoning = '';
+                
+                if (data.success) {
+                    if (data.referral_code && data.referral_code.trim() !== '') {
+                        expectedPage = 'Existing Code Display Page';
+                        reasoning = `User has referral code: ${data.referral_code}`;
+                    } else {
+                        expectedPage = 'Generate Code Page';
+                        reasoning = 'User has no referral code';
+                    }
+                } else {
+                    expectedPage = 'Generate Code Page (Error)';
+                    reasoning = `API error: ${data.message}`;
+                }
+                
+                const statusClass = data.success && data.referral_code ? 'success' : 'error';
+                
+                div.innerHTML = `
+                    <div class="${statusClass}">
+                        <h4>🎯 Login Flow Result</h4>
+                        <p><strong>Expected Page:</strong> ${expectedPage}</p>
+                        <p><strong>Reasoning:</strong> ${reasoning}</p>
+                        
+                        <h4>📡 API Response:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        
+                        <h4>📋 Frontend Logic Check:</h4>
+                        <p>response.success: ${data.success}</p>
+                        <p>response.referral_code: "${data.referral_code || ''}"</p>
+                        <p>Should show existing code: ${data.success && data.referral_code && data.referral_code.trim() !== ''}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function clearLocalStorage() {
+            localStorage.removeItem('rh_token');
+            localStorage.removeItem('rh_user');
+            document.getElementById('localStorageInfo').innerHTML = `
+                <div class="info">
+                    <p>✅ Cleared rh_token and rh_user from localStorage</p>
+                </div>
+            `;
+        }
+        
+        function setTestUserData() {
+            const testUserData = {
+                id: 123,
+                email: 'test@example.com',
+                first_name: 'Test',
+                last_name: 'User',
+                referral_code: 'TEST1234'
+            };
+            
+            localStorage.setItem('rh_user', JSON.stringify(testUserData));
+            
+            document.getElementById('localStorageInfo').innerHTML = `
+                <div class="success">
+                    <p>✅ Set test user data with referral code: TEST1234</p>
+                    <pre>${JSON.stringify(testUserData, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        // Auto-check current state on load
+        window.onload = function() {
+            checkCurrentState();
+        };
+    </script>
+</body>
+</html>

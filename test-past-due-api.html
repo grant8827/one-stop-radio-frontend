@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Due API Test</title>
+</head>
+<body>
+    <h1>Past Due API Test</h1>
+    <button onclick="testPastDueAPI()">Test Past Due API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testPastDueAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Note: This is a simplified test - in production you'd need proper authentication
+                const response = await fetch('/api/dashboard/past-due', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        // Add authorization header if needed: 'Authorization': 'Bearer TOKEN'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <h2>API Response:</h2>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Success:</strong> ${data.success}</p>
+                    <h3>Data Summary:</h3>
+                    <ul>
+                        <li>Late Payments: ${data.data?.late_payments?.length || 0}</li>
+                        <li>Unpaid Payments: ${data.data?.unpaid_payments?.length || 0}</li>
+                        <li>Settled Payments: ${data.data?.settled_payments?.length || 0}</li>
+                    </ul>
+                    <h3>Full Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                if (data.success && data.data) {
+                    console.log('Past Due Data:', data.data);
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <h2>Error:</h2>
+                    <p>${error.message}</p>
+                `;
+                console.error('API Test Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

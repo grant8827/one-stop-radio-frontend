@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Register Page Loading</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .loading { color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🐛 Debug Register Page Loading Issue</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Test Configuration</h3>
+        <p><strong>Register URL:</strong> https://frontend-development-production.up.railway.app/register?referral=CYA4HV5Q</p>
+        <p><strong>Issue:</strong> Page shows loading but never renders</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test 1: Check HTML Response</h3>
+        <button onclick="testHtmlResponse()">Test HTML Response</button>
+        <div id="htmlResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test 2: Check JavaScript Bundle</h3>
+        <button onclick="testJavaScriptBundle()">Test JS Bundle Loading</button>
+        <div id="jsResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test 3: Network Connectivity</h3>
+        <button onclick="testNetworkConnectivity()">Test Network</button>
+        <div id="networkResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test 4: Compare Working vs Broken URLs</h3>
+        <button onclick="compareUrls()">Compare URLs</button>
+        <div id="compareResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Suggested Solutions</h3>
+        <div id="solutions">
+            <div class="info">
+                <h4>Potential Issues & Solutions:</h4>
+                <ul>
+                    <li><strong>React Router Issue:</strong> Frontend might need client-side routing fix</li>
+                    <li><strong>Build Issue:</strong> Frontend deployment might have broken JavaScript</li>
+                    <li><strong>Environment Variables:</strong> Missing API configuration</li>
+                    <li><strong>CORS Issues:</strong> API communication problems</li>
+                    <li><strong>Lazy Loading:</strong> Register component might be failing to load</li>
+                </ul>
+                
+                <h4>Quick Fixes to Try:</h4>
+                <ol>
+                    <li><strong>Redeploy Frontend:</strong> Force a new deployment on Railway</li>
+                    <li><strong>Clear Browser Cache:</strong> Hard refresh (Cmd+Shift+R)</li>
+                    <li><strong>Check Console:</strong> Open browser dev tools to see JavaScript errors</li>
+                    <li><strong>Try Different Route:</strong> Test if /login works to isolate the issue</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testHtmlResponse() {
+            const div = document.getElementById('htmlResults');
+            div.innerHTML = '<p class="loading">Testing HTML response...</p>';
+            
+            try {
+                const response = await fetch('https://frontend-development-production.up.railway.app/register?referral=CYA4HV5Q');
+                const html = await response.text();
+                
+                const statusClass = response.ok ? 'success' : 'error';
+                const statusIcon = response.ok ? '✅' : '❌';
+                
+                div.innerHTML = `
+                    <div class="${statusClass}">
+                        <h4>${statusIcon} HTML Response Test</h4>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Content-Type:</strong> ${response.headers.get('content-type')}</p>
+                        <p><strong>Content Length:</strong> ${html.length} bytes</p>
+                        <p><strong>Contains React Root:</strong> ${html.includes('id="root"') ? 'Yes ✅' : 'No ❌'}</p>
+                        <p><strong>Contains Script Tags:</strong> ${html.includes('<script') ? 'Yes ✅' : 'No ❌'}</p>
+                        <details>
+                            <summary>View HTML Content (first 500 chars)</summary>
+                            <pre>${html.substring(0, 500)}...</pre>
+                        </details>
+                    </div>
+                `;
+                
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="error">
+                        <h4>❌ HTML Response Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testJavaScriptBundle() {
+            const div = document.getElementById('jsResults');
+            div.innerHTML = '<p class="loading">Testing JavaScript bundle...</p>';
+            
+            try {
+                // First get the HTML to find the script src
+                const htmlResponse = await fetch('https://frontend-development-production.up.railway.app/register');
+                const html = await htmlResponse.text();
+                
+                // Extract script src from HTML
+                const scriptMatch = html.match(/<script[^>]*src="([^"]*)"[^>]*>/);
+                const scriptSrc = scriptMatch ? scriptMatch[1] : null;
+                
+                if (!scriptSrc) {
+                    throw new Error('No script tag found in HTML');
+                }
+                
+                // Test the JavaScript bundle
+                const fullScriptUrl = scriptSrc.startsWith('http') ? 
+                    scriptSrc : 
+                    'https://frontend-development-production.up.railway.app' + scriptSrc;
+                    
+                const jsResponse = await fetch(fullScriptUrl);
+                const jsContent = await jsResponse.text();
+                
+                const statusClass = jsResponse.ok ? 'success' : 'error';
+                const statusIcon = jsResponse.ok ? '✅' : '❌';
+                
+                div.innerHTML = `
+                    <div class="${statusClass}">
+                        <h4>${statusIcon} JavaScript Bundle Test</h4>
+                        <p><strong>Script URL:</strong> ${fullScriptUrl}</p>
+                        <p><strong>Status:</strong> ${jsResponse.status}</p>
+                        <p><strong>Content-Type:</strong> ${jsResponse.headers.get('content-type')}</p>
+                        <p><strong>Bundle Size:</strong> ${jsContent.length} bytes</p>
+                        <p><strong>Contains React:</strong> ${jsContent.includes('React') || jsContent.includes('react') ? 'Yes ✅' : 'No ❌'}</p>
+                        <p><strong>Contains Router:</strong> ${jsContent.includes('Router') || jsContent.includes('router') ? 'Yes ✅' : 'No ❌'}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="error">
+                        <h4>❌ JavaScript Bundle Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testNetworkConnectivity() {
+            const div = document.getElementById('networkResults');
+            div.innerHTML = '<p class="loading">Testing network connectivity...</p>';
+            
+            const tests = [
+                { name: 'Frontend Base', url: 'https://frontend-development-production.up.railway.app/' },
+                { name: 'Register Page', url: 'https://frontend-development-production.up.railway.app/register' },
+                { name: 'Login Page', url: 'https://frontend-development-production.up.railway.app/login' },
+                { name: 'Backend API', url: 'https://rentalhist-backend-production.up.railway.app/api/health' }
+            ];
+            
+            let results = '<h4>🌐 Network Connectivity Results:</h4>';
+            
+            for (const test of tests) {
+                try {
+                    const start = performance.now();
+                    const response = await fetch(test.url, { method: 'HEAD' });
+                    const end = performance.now();
+                    const time = Math.round(end - start);
+                    
+                    const statusClass = response.ok ? 'success' : 'error';
+                    const statusIcon = response.ok ? '✅' : '❌';
+                    
+                    results += `
+                        <div class="${statusClass}" style="margin: 10px 0; padding: 10px;">
+                            <strong>${statusIcon} ${test.name}</strong><br>
+                            Status: ${response.status}<br>
+                            Response Time: ${time}ms
+                        </div>
+                    `;
+                } catch (error) {
+                    results += `
+                        <div class="error" style="margin: 10px 0; padding: 10px;">
+                            <strong>❌ ${test.name}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            div.innerHTML = results;
+        }
+        
+        async function compareUrls() {
+            const div = document.getElementById('compareResults');
+            div.innerHTML = '<p class="loading">Comparing URLs...</p>';
+            
+            const urls = [
+                'https://frontend-development-production.up.railway.app/',
+                'https://frontend-development-production.up.railway.app/login',
+                'https://frontend-development-production.up.railway.app/register',
+                'https://frontend-development-production.up.railway.app/register?referral=TEST123'
+            ];
+            
+            let results = '<h4>🔍 URL Comparison Results:</h4>';
+            
+            for (const url of urls) {
+                try {
+                    const response = await fetch(url);
+                    const html = await response.text();
+                    
+                    const statusClass = response.ok ? 'success' : 'error';
+                    const statusIcon = response.ok ? '✅' : '❌';
+                    
+                    results += `
+                        <div class="${statusClass}" style="margin: 10px 0; padding: 10px;">
+                            <strong>${statusIcon} ${url}</strong><br>
+                            Status: ${response.status}<br>
+                            Content Length: ${html.length} bytes<br>
+                            Same Content as Base: ${html === (await fetch(urls[0]).then(r => r.text())) ? 'Yes (SPA behavior ✅)' : 'No'}
+                        </div>
+                    `;
+                } catch (error) {
+                    results += `
+                        <div class="error" style="margin: 10px 0; padding: 10px;">
+                            <strong>❌ ${url}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            div.innerHTML = results;
+        }
+    </script>
+</body>
+</html>

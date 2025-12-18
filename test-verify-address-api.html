@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Verify Address API</title>
+    <script>
+        // Test creating a new address verification request
+        async function testCreateAddress() {
+            const addressData = {
+                street_address: '123 Main Street',
+                city: 'Anytown',
+                state: 'CA',
+                zip_code: '90210',
+                country: 'USA',
+                address_type: 'residential',
+                is_primary: true,
+                verification_method: 'document'
+            };
+
+            console.log('Creating address verification request:', addressData);
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/verify-addresses', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer test-token'
+                    },
+                    body: JSON.stringify(addressData)
+                });
+
+                const result = await response.json();
+                
+                console.log('Create Response Status:', response.status);
+                console.log('Create Response Data:', result);
+
+                document.getElementById('createResult').innerHTML = 
+                    `<div style="color: ${response.ok ? 'green' : 'red'};">
+                        ${response.ok ? '✅ SUCCESS' : '❌ ERROR'}: ${response.status}
+                    </div>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>`;
+
+            } catch (error) {
+                console.error('Create address error:', error);
+                document.getElementById('createResult').innerHTML = 
+                    `<div style="color: red;">❌ NETWORK ERROR: ${error.message}</div>`;
+            }
+        }
+
+        // Test getting all addresses
+        async function testGetAddresses() {
+            console.log('Fetching user addresses...');
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/verify-addresses', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer test-token'
+                    }
+                });
+
+                const result = await response.json();
+                
+                console.log('Get Response Status:', response.status);
+                console.log('Get Response Data:', result);
+
+                document.getElementById('getResult').innerHTML = 
+                    `<div style="color: ${response.ok ? 'green' : 'red'};">
+                        ${response.ok ? '✅ SUCCESS' : '❌ ERROR'}: ${response.status}
+                    </div>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>`;
+
+            } catch (error) {
+                console.error('Get addresses error:', error);
+                document.getElementById('getResult').innerHTML = 
+                    `<div style="color: red;">❌ NETWORK ERROR: ${error.message}</div>`;
+            }
+        }
+
+        // Test verifying an address (admin function)
+        async function testVerifyAddress() {
+            const addressId = document.getElementById('addressId').value || '1';
+            const notes = 'Address verified through document review';
+
+            console.log(`Verifying address ${addressId}...`);
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/api/verify-addresses/${addressId}/verify`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer admin-token'
+                    },
+                    body: JSON.stringify({ notes })
+                });
+
+                const result = await response.json();
+                
+                console.log('Verify Response Status:', response.status);
+                console.log('Verify Response Data:', result);
+
+                document.getElementById('verifyResult').innerHTML = 
+                    `<div style="color: ${response.ok ? 'green' : 'red'};">
+                        ${response.ok ? '✅ SUCCESS' : '❌ ERROR'}: ${response.status}
+                    </div>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>`;
+
+            } catch (error) {
+                console.error('Verify address error:', error);
+                document.getElementById('verifyResult').innerHTML = 
+                    `<div style="color: red;">❌ NETWORK ERROR: ${error.message}</div>`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Verify Address API</h1>
+    
+    <div style="margin: 20px 0;">
+        <h2>1. Create Address Verification Request</h2>
+        <button onclick="testCreateAddress()" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer;">
+            Create Address
+        </button>
+        <div id="createResult" style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; background: #f9f9f9;"></div>
+    </div>
+
+    <div style="margin: 20px 0;">
+        <h2>2. Get User Addresses</h2>
+        <button onclick="testGetAddresses()" style="padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer;">
+            Get Addresses
+        </button>
+        <div id="getResult" style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; background: #f9f9f9;"></div>
+    </div>
+
+    <div style="margin: 20px 0;">
+        <h2>3. Verify Address (Admin)</h2>
+        <input type="number" id="addressId" placeholder="Address ID" value="1" style="padding: 8px; margin-right: 10px;">
+        <button onclick="testVerifyAddress()" style="padding: 10px 20px; background: #ffc107; color: black; border: none; cursor: pointer;">
+            Verify Address
+        </button>
+        <div id="verifyResult" style="margin-top: 20px; padding: 20px; border: 1px solid #ccc; background: #f9f9f9;"></div>
+    </div>
+
+    <div style="margin: 20px 0; padding: 20px; background: #e9ecef; border-radius: 5px;">
+        <h3>Available API Endpoints:</h3>
+        <ul>
+            <li><strong>GET</strong> /api/verify-addresses - Get user's addresses</li>
+            <li><strong>POST</strong> /api/verify-addresses - Create address verification request</li>
+            <li><strong>GET</strong> /api/verify-addresses/{id} - Get specific address</li>
+            <li><strong>PUT</strong> /api/verify-addresses/{id} - Update address (if pending)</li>
+            <li><strong>DELETE</strong> /api/verify-addresses/{id} - Delete address</li>
+            <li><strong>PATCH</strong> /api/verify-addresses/{id}/verify - Verify address (admin)</li>
+            <li><strong>PATCH</strong> /api/verify-addresses/{id}/reject - Reject address (admin)</li>
+        </ul>
+    </div>
+</body>
+</html>
