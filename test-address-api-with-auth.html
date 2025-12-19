@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Address API with Real Auth</title>
+</head>
+<body>
+    <h1>Test Address API</h1>
+    <button onclick="testWithRealAuth()">Test with Frontend Auth</button>
+    <div id="result"></div>
+
+    <script>
+        async function testWithRealAuth() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Loading...';
+            
+            try {
+                // Get token from localStorage (same way the frontend does it)
+                const token = localStorage.getItem('rh_token');
+                console.log('Using token from localStorage:', token ? 'Found' : 'Not found');
+                
+                if (!token) {
+                    resultDiv.innerHTML = '<h3>Error: No auth token found in localStorage</h3><p>Please login to the app first</p>';
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:8000/api/dashboard/addresses-for-verification', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                resultDiv.innerHTML = `
+                    <h3>Response Status: ${response.status}</h3>
+                    <h3>Response Data:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<h3>Error: ${error.message}</h3>`;
+            }
+        }
+    </script>
+</body>
+</html>
