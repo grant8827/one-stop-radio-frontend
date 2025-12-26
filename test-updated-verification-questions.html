@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Updated Verification Questions API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin-bottom: 30px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; max-height: 400px; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 3px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #0056b3; }
+        .highlight { background-color: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test Updated Verification Questions API</h1>
+    
+    <div class="highlight">
+        <strong>Testing:</strong> New implementation that fetches active questions from verification_questions table + addresses from both leases and verify_addresses tables
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 1: Get Verification Questions & Addresses</h2>
+        <button onclick="testGetVerificationData()">Fetch Verification Data</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Check Active Questions Only</h2>
+        <button onclick="testActiveQuestionsOnly()">Get Active Questions</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Data Structure Validation</h2>
+        <button onclick="testDataStructure()">Validate Structure</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api'; // Adjust as needed
+        const token = localStorage.getItem('api_token') || 'your-api-token'; // Adjust as needed
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            };
+            
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, config);
+                const result = await response.json();
+                return { success: response.ok, data: result, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        function displayResult(containerId, result, additionalInfo = null) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = result.success ? 'result success' : 'result error';
+            
+            if (result.success) {
+                let content = `<strong>Success (${result.status}):</strong><pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+                if (additionalInfo) {
+                    content = `<strong>Analysis:</strong><pre>${additionalInfo}</pre>` + content;
+                }
+                div.innerHTML = content;
+            } else {
+                div.innerHTML = `
+                    <strong>Error:</strong> 
+                    <pre>${result.error || JSON.stringify(result.data, null, 2)}</pre>
+                `;
+            }
+            
+            container.innerHTML = '';
+            container.appendChild(div);
+        }
+
+        // Test 1: Get verification data
+        async function testGetVerificationData() {
+            const result = await apiCall('/dashboard/verification-questions');
+            
+            let analysis = null;
+            if (result.success && result.data?.data) {
+                const data = result.data.data;
+                analysis = `📊 ANALYSIS:
+- Verification Questions: ${data.verification_questions?.length || 0}
+- Addresses from Leases: ${data.addresses?.from_leases?.length || 0}
+- Addresses from Verify Table: ${data.addresses?.from_verify_addresses?.length || 0}
+- Total Addresses: ${data.addresses?.total_count || 0}
+- Has Active Questions: ${data.verification_questions?.some(q => q.is_active) || false}`;
+            }
+            
+            displayResult('test1-result', result, analysis);
+        }
+
+        // Test 2: Check only active questions
+        async function testActiveQuestionsOnly() {
+            const result = await apiCall('/verification-questions?is_active=1');
+            
+            let analysis = null;
+            if (result.success && result.data?.data) {
+                const questions = result.data.data;
+                analysis = `📊 ACTIVE QUESTIONS ANALYSIS:
+- Total Questions: ${questions.length || 0}
+- All Active: ${questions.every(q => q.is_active === true)}
+- Questions: ${questions.map(q => `"${q.question}"`).join(', ')}`;
+            }
+            
+            displayResult('test2-result', result, analysis);
+        }
+
+        // Test 3: Validate data structure
+        async function testDataStructure() {
+            const result = await apiCall('/dashboard/verification-questions');
+            
+            let analysis = 'STRUCTURE VALIDATION:\n';
+            if (result.success && result.data?.data) {
+                const data = result.data.data;
+                
+                // Check structure
+                analysis += `✅ Has verification_questions: ${!!data.verification_questions}\n`;
+                analysis += `✅ Has addresses object: ${!!data.addresses}\n`;
+                analysis += `✅ Has from_leases array: ${!!data.addresses?.from_leases}\n`;
+                analysis += `✅ Has from_verify_addresses array: ${!!data.addresses?.from_verify_addresses}\n`;
+                analysis += `✅ Has total_count: ${!!data.addresses?.total_count}\n`;
+                
+                // Check question structure
+                if (data.verification_questions?.length > 0) {
+                    const q = data.verification_questions[0];
+                    analysis += `✅ Questions have required fields: ${!!(q.id && q.question && typeof q.is_active === 'boolean')}\n`;
+                }
+                
+                // Check address structure
+                const allAddresses = [...(data.addresses?.from_leases || []), ...(data.addresses?.from_verify_addresses || [])];
+                if (allAddresses.length > 0) {
+                    const addr = allAddresses[0];
+                    analysis += `✅ Addresses have required fields: ${!!(addr.address && addr.source)}\n`;
+                }
+                
+                analysis += `\n🎯 READY FOR FRONTEND: ${
+                    data.verification_questions && 
+                    data.addresses && 
+                    data.addresses.from_leases && 
+                    data.addresses.from_verify_addresses
+                }`;
+                
+            } else {
+                analysis += '❌ Invalid response structure';
+            }
+            
+            displayResult('test3-result', result, analysis);
+        }
+
+        // Initial load message
+        window.addEventListener('load', () => {
+            console.log('🧪 Updated Verification Questions API Test loaded');
+            console.log('📋 Testing: Active questions from verification_questions table + addresses from leases & verify_addresses');
+        });
+    </script>
+</body>
+</html>

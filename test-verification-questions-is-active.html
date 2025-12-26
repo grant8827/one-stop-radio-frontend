@@ -1,0 +1,174 @@
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;Test Verification Questions API with is_active&lt;/title&gt;
+    &lt;style&gt;
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin-bottom: 30px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 3px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #0056b3; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Verification Questions API Test - is_active Column&lt;/h1&gt;
+    
+    &lt;div class="test-section"&gt;
+        &lt;h2&gt;Test 1: Get All Questions (including is_active filter)&lt;/h2&gt;
+        &lt;button onclick="testGetAllQuestions()"&gt;Get All Questions&lt;/button&gt;
+        &lt;button onclick="testGetActiveQuestions()"&gt;Get Active Questions Only&lt;/button&gt;
+        &lt;button onclick="testGetInactiveQuestions()"&gt;Get Inactive Questions Only&lt;/button&gt;
+        &lt;div id="test1-result"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="test-section"&gt;
+        &lt;h2&gt;Test 2: Create Question with is_active&lt;/h2&gt;
+        &lt;button onclick="testCreateActiveQuestion()"&gt;Create Active Question&lt;/button&gt;
+        &lt;button onclick="testCreateInactiveQuestion()"&gt;Create Inactive Question&lt;/button&gt;
+        &lt;div id="test2-result"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="test-section"&gt;
+        &lt;h2&gt;Test 3: Update Question is_active Status&lt;/h2&gt;
+        &lt;input type="number" id="question-id" placeholder="Question ID"&gt;
+        &lt;button onclick="testActivateQuestion()"&gt;Activate Question&lt;/button&gt;
+        &lt;button onclick="testDeactivateQuestion()"&gt;Deactivate Question&lt;/button&gt;
+        &lt;div id="test3-result"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="test-section"&gt;
+        &lt;h2&gt;Test 4: Get Random Questions (should only return active by default)&lt;/h2&gt;
+        &lt;button onclick="testGetRandomQuestions()"&gt;Get Random Questions&lt;/button&gt;
+        &lt;div id="test4-result"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        const API_BASE = 'http://localhost:8000/api'; // Adjust as needed
+        const token = localStorage.getItem('api_token') || 'your-api-token'; // Adjust as needed
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            };
+            
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, config);
+                const result = await response.json();
+                return { success: response.ok, data: result, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        function displayResult(containerId, result) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = result.success ? 'result success' : 'result error';
+            
+            if (result.success) {
+                div.innerHTML = `
+                    &lt;strong&gt;Success:&lt;/strong&gt;
+                    &lt;pre&gt;${JSON.stringify(result.data, null, 2)}&lt;/pre&gt;
+                `;
+            } else {
+                div.innerHTML = `
+                    &lt;strong&gt;Error:&lt;/strong&gt; 
+                    &lt;pre&gt;${result.error || JSON.stringify(result.data, null, 2)}&lt;/pre&gt;
+                `;
+            }
+            
+            container.innerHTML = '';
+            container.appendChild(div);
+        }
+
+        // Test 1: Get questions with filtering
+        async function testGetAllQuestions() {
+            const result = await apiCall('/verification-questions');
+            displayResult('test1-result', result);
+        }
+
+        async function testGetActiveQuestions() {
+            const result = await apiCall('/verification-questions?is_active=1');
+            displayResult('test1-result', result);
+        }
+
+        async function testGetInactiveQuestions() {
+            const result = await apiCall('/verification-questions?is_active=0');
+            displayResult('test1-result', result);
+        }
+
+        // Test 2: Create questions
+        async function testCreateActiveQuestion() {
+            const data = {
+                question: `Test active question ${Date.now()}`,
+                fake_info: true,
+                real_info: true,
+                is_active: true
+            };
+            const result = await apiCall('/verification-questions', 'POST', data);
+            displayResult('test2-result', result);
+        }
+
+        async function testCreateInactiveQuestion() {
+            const data = {
+                question: `Test inactive question ${Date.now()}`,
+                fake_info: true,
+                real_info: true,
+                is_active: false
+            };
+            const result = await apiCall('/verification-questions', 'POST', data);
+            displayResult('test2-result', result);
+        }
+
+        // Test 3: Update questions
+        async function testActivateQuestion() {
+            const id = document.getElementById('question-id').value;
+            if (!id) {
+                displayResult('test3-result', { success: false, error: 'Please enter a question ID' });
+                return;
+            }
+            
+            const data = { is_active: true };
+            const result = await apiCall(`/verification-questions/${id}`, 'PUT', data);
+            displayResult('test3-result', result);
+        }
+
+        async function testDeactivateQuestion() {
+            const id = document.getElementById('question-id').value;
+            if (!id) {
+                displayResult('test3-result', { success: false, error: 'Please enter a question ID' });
+                return;
+            }
+            
+            const data = { is_active: false };
+            const result = await apiCall(`/verification-questions/${id}`, 'PUT', data);
+            displayResult('test3-result', result);
+        }
+
+        // Test 4: Get random questions (should only return active)
+        async function testGetRandomQuestions() {
+            const result = await apiCall('/verification-questions-random');
+            displayResult('test4-result', result);
+        }
+
+        // Initial load
+        window.addEventListener('load', () => {
+            console.log('Verification Questions API Test with is_active column loaded');
+        });
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;

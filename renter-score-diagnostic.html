@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renter Score Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ddd;
+        }
+        .test-section.success {
+            background: #e8f5e8;
+            border-left-color: #28a745;
+        }
+        .test-section.error {
+            background: #fee;
+            border-left-color: #dc3545;
+        }
+        .test-section.warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            background: #0B72C5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0958a1;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Renter Score Diagnostic Test</h1>
+    <p>This test will help diagnose why your renter score is not working.</p>
+    
+    <button onclick="runDiagnostics()">🚀 Run Diagnostics</button>
+    
+    <div id="results"></div>
+
+    <script>
+        // Get the base URL from current location
+        const baseURL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+            ? 'http://localhost:8000'  // Local development
+            : window.location.origin.replace(/:\d+/, '') + ':8000';  // Production with port 8000
+
+        console.log('🌐 Using base URL:', baseURL);
+
+        async function makeAPICall(endpoint, testName) {
+            try {
+                console.log(`📤 Making API call to: ${baseURL}/api/${endpoint}`);
+                
+                // Get auth token from localStorage
+                const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+                
+                if (!token) {
+                    return {
+                        success: false,
+                        error: 'No authentication token found',
+                        endpoint: endpoint
+                    };
+                }
+
+                const response = await fetch(`${baseURL}/api/${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const responseText = await response.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    return {
+                        success: false,
+                        error: `Invalid JSON response: ${responseText}`,
+                        endpoint: endpoint,
+                        status: response.status
+                    };
+                }
+
+                return {
+                    success: response.ok && (data.success || data.status),
+                    data: data,
+                    endpoint: endpoint,
+                    status: response.status
+                };
+                
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message,
+                    endpoint: endpoint
+                };
+            }
+        }
+
+        function displayResult(testName, result) {
+            const resultsDiv = document.getElementById('results');
+            const testDiv = document.createElement('div');
+            
+            if (result.success) {
+                testDiv.className = 'test-section success';
+                testDiv.innerHTML = `
+                    <h4>✅ ${testName}</h4>
+                    <p><strong>Status:</strong> Success</p>
+                    <p><strong>Endpoint:</strong> ${result.endpoint}</p>
+                    <details>
+                        <summary>📊 Response Data Structure</summary>
+                        <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                    </details>
+                `;
+            } else {
+                testDiv.className = 'test-section error';
+                testDiv.innerHTML = `
+                    <h4>❌ ${testName}</h4>
+                    <p><strong>Status:</strong> ${result.status || 'Error'}</p>
+                    <p><strong>Endpoint:</strong> ${result.endpoint}</p>
+                    <p><strong>Error:</strong> ${result.error || JSON.stringify(result.data)}</p>
+                `;
+            }
+            
+            resultsDiv.appendChild(testDiv);
+        }
+
+        async function testAuth() {
+            const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+            const testDiv = document.createElement('div');
+            
+            if (!token) {
+                testDiv.className = 'test-section error';
+                testDiv.innerHTML = `
+                    <h4>❌ Authentication Check</h4>
+                    <p><strong>Status:</strong> No Token Found</p>
+                    <p><strong>Issue:</strong> No authentication token found in localStorage</p>
+                    <p><strong>Solution:</strong> Please log in again to get a fresh token</p>
+                `;
+            } else {
+                testDiv.className = 'test-section success';
+                testDiv.innerHTML = `
+                    <h4>✅ Authentication Check</h4>
+                    <p><strong>Status:</strong> Token Found</p>
+                    <p><strong>Token Length:</strong> ${token.length} characters</p>
+                    <p><strong>First 20 chars:</strong> ${token.substring(0, 20)}...</p>
+                `;
+            }
+            
+            document.getElementById('results').appendChild(testDiv);
+        }
+
+        async function testRenterScore() {
+            const result = await makeAPICall('dashboard/renter-score', 'Dashboard Renter Score Endpoint');
+            displayResult('dashboard/renter-score (Primary Score API)', result);
+            
+            if (result.success && result.data?.data) {
+                const data = result.data.data;
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-section success';
+                
+                const renterScore = data.renter_score || {};
+                const userPoints = data.user_points || {};
+                
+                testDiv.innerHTML = `
+                    <h4>📊 Renter Score Analysis</h4>
+                    <p><strong>Calculated Renter Score:</strong> ${renterScore.calculated_renter_score || 0}</p>
+                    <p><strong>Payment Score:</strong> ${renterScore.calculated_payment_score || 0}</p>
+                    <p><strong>Cooperativeness Score:</strong> ${renterScore.cooperativeness_score || 0}</p>
+                    <p><strong>Civility Score:</strong> ${renterScore.civility_score || 0}</p>
+                    <p><strong>Cleanliness Score:</strong> ${renterScore.cleanliness_score || 0}</p>
+                    <p><strong>Booster Score:</strong> ${renterScore.booster_score || 0}</p>
+                    <p><strong>Total Leases:</strong> ${renterScore.total_leases || 0}</p>
+                    <p><strong>Current Points:</strong> ${userPoints.current_balance || 0}</p>
+                    <hr>
+                    <p><strong>Possible Issues:</strong></p>
+                    ${renterScore.total_leases === 0 ? '<p style="color: orange;">⚠️ No active leases found - this may be why your score is 0</p>' : ''}
+                    ${renterScore.calculated_renter_score === 0 ? '<p style="color: orange;">⚠️ All score components are 0 - scores may need to be populated in the database</p>' : ''}
+                `;
+                
+                document.getElementById('results').appendChild(testDiv);
+            }
+        }
+
+        async function testUserEndpoint() {
+            const result = await makeAPICall('user', 'User Info Endpoint');
+            displayResult('user (Authentication & User Data)', result);
+        }
+
+        async function testDashboardRenter() {
+            const result = await makeAPICall('dashboard/renter', 'Dashboard Renter Profile Endpoint');
+            displayResult('dashboard/renter (Profile Data)', result);
+        }
+
+        async function runDiagnostics() {
+            document.getElementById('results').innerHTML = '<h3>🔄 Running diagnostics...</h3>';
+            
+            // Test 1: Authentication
+            console.log('🔍 Testing authentication...');
+            await testAuth();
+            
+            // Test 2: User endpoint
+            console.log('🔍 Testing user endpoint...');
+            await testUserEndpoint();
+            
+            // Test 3: Primary renter score endpoint
+            console.log('🔍 Testing renter score endpoint...');
+            await testRenterScore();
+            
+            // Test 4: Dashboard renter endpoint
+            console.log('🔍 Testing dashboard renter endpoint...');
+            await testDashboardRenter();
+            
+            console.log('✅ All diagnostics completed');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Questions API Test</title>
+</head>
+<body>
+    <h2>Verification Questions API Debug Test</h2>
+    <div id="results"></div>
+    
+    <script>
+        async function testVerificationQuestionsAPI() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Get auth token (you'll need to replace this with a valid token)
+                const token = localStorage.getItem('authToken') || prompt('Enter your auth token:');
+                
+                if (!token) {
+                    resultsDiv.innerHTML = '<p style="color: red;">No auth token provided</p>';
+                    return;
+                }
+                
+                console.log('🔍 Testing verification questions API...');
+                resultsDiv.innerHTML = '<p>Loading...</p>';
+                
+                const response = await fetch('/api/dashboard/verification-questions', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                console.log('📊 API Response Status:', response.status);
+                console.log('📊 API Response Data:', data);
+                
+                let resultHTML = `
+                    <h3>API Response Status: ${response.status}</h3>
+                    <h4>Response Data:</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                if (data.success && data.data) {
+                    const { questions, addresses } = data.data;
+                    resultHTML += `
+                        <h4>Questions Found: ${questions ? questions.length : 0}</h4>
+                        <h4>Addresses Found: ${addresses ? addresses.length : 0}</h4>
+                    `;
+                    
+                    if (questions && questions.length > 0) {
+                        resultHTML += '<h4>Sample Questions:</h4>';
+                        questions.forEach((q, idx) => {
+                            resultHTML += `<p><strong>Q${idx + 1}:</strong> ${q.question}</p>`;
+                        });
+                    }
+                    
+                    if (addresses && addresses.length > 0) {
+                        resultHTML += '<h4>Sample Addresses:</h4>';
+                        addresses.forEach((addr, idx) => {
+                            resultHTML += `<p><strong>Addr${idx + 1}:</strong> ${addr.address}</p>`;
+                        });
+                    }
+                } else {
+                    resultHTML += '<p style="color: red;">❌ API returned no questions/addresses data</p>';
+                }
+                
+                resultsDiv.innerHTML = resultHTML;
+                
+            } catch (error) {
+                console.error('❌ Error testing API:', error);
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', testVerificationQuestionsAPI);
+    </script>
+</body>
+</html>

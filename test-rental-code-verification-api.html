@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rental Code Verification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, button { padding: 8px; margin: 5px 0; }
+        input[type="text"] { width: 200px; }
+        button { background: #007cba; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #005a87; }
+        .response { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .endpoint-info { background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🏷️ Rental Code Verification Test</h1>
+    
+    <div class="endpoint-info">
+        <h3>API Endpoint Information</h3>
+        <p><strong>URL:</strong> <code id="api-url">http://127.0.0.1:8000/api/verify-rental-code</code></p>
+        <p><strong>Method:</strong> POST</p>
+        <p><strong>Authentication:</strong> Bearer Token Required</p>
+        <p><strong>Content-Type:</strong> application/json</p>
+    </div>
+
+    <div class="form-group">
+        <label for="authToken">Bearer Token:</label>
+        <input type="text" id="authToken" placeholder="Enter your authentication token" style="width: 400px;">
+        <small style="display: block; color: #666;">Get this from your login response or browser dev tools</small>
+    </div>
+
+    <div class="form-group">
+        <label for="rentalCode">Rental Code:</label>
+        <input type="text" id="rentalCode" placeholder="RC123456" maxlength="8" style="text-transform: uppercase;">
+        <button onclick="verifyRentalCode()">🔍 Verify Rental Code</button>
+    </div>
+
+    <div class="form-group">
+        <h3>Test Cases:</h3>
+        <button onclick="testInvalidCode('')">Test Empty Code</button>
+        <button onclick="testInvalidCode('RC12345')">Test Short Code</button>
+        <button onclick="testInvalidCode('XX123456')">Test Invalid Prefix</button>
+        <button onclick="testInvalidCode('RC999999')">Test Non-existent Code</button>
+    </div>
+
+    <div id="response"></div>
+
+    <script>
+        // Auto-uppercase rental code input
+        document.getElementById('rentalCode').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        async function verifyRentalCode() {
+            const token = document.getElementById('authToken').value.trim();
+            const rentalCode = document.getElementById('rentalCode').value.trim();
+            
+            if (!token) {
+                showResponse('error', 'Please enter your authentication token');
+                return;
+            }
+            
+            if (!rentalCode) {
+                showResponse('error', 'Please enter a rental code');
+                return;
+            }
+
+            try {
+                showResponse('info', 'Verifying rental code...');
+                
+                const response = await fetch('http://127.0.0.1:8000/api/verify-rental-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        rental_code: rentalCode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResponse('success', 'Rental code verified successfully!', data);
+                    
+                    // Display rental history if available
+                    if (data.data && data.data.rental_history) {
+                        displayRentalHistory(data.data);
+                    }
+                } else {
+                    showResponse('error', `Verification failed (${response.status})`, data);
+                }
+
+            } catch (error) {
+                showResponse('error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function testInvalidCode(code) {
+            document.getElementById('rentalCode').value = code;
+            await verifyRentalCode();
+        }
+
+        function showResponse(type, message, data = null) {
+            const responseDiv = document.getElementById('response');
+            
+            let className = type === 'success' ? 'success' : 'error';
+            if (type === 'info') className = '';
+            
+            let html = `<div class="response ${className}">
+                <h3>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} ${message}</h3>`;
+            
+            if (data) {
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            html += '</div>';
+            responseDiv.innerHTML = html;
+        }
+
+        function displayRentalHistory(data) {
+            const responseDiv = document.getElementById('response');
+            
+            let historyHtml = '<div class="response success"><h3>📊 Rental History Summary</h3>';
+            
+            // Renter info
+            if (data.renter_info) {
+                historyHtml += `
+                <h4>👤 Renter Information</h4>
+                <ul>
+                    <li><strong>Name:</strong> ${data.renter_info.full_name}</li>
+                    <li><strong>Email:</strong> ${data.renter_info.email}</li>
+                    <li><strong>Phone:</strong> ${data.renter_info.phone}</li>
+                    <li><strong>Rental Code:</strong> ${data.renter_info.rental_code}</li>
+                    <li><strong>Questions Answered:</strong> ${data.renter_info.verification_stats.questions_answered}</li>
+                    <li><strong>Accuracy:</strong> ${data.renter_info.verification_stats.accuracy}%</li>
+                </ul>`;
+            }
+            
+            // Rental history
+            if (data.rental_history && data.rental_history.length > 0) {
+                historyHtml += `<h4>🏠 Rental History (${data.rental_history.length} leases)</h4>`;
+                
+                data.rental_history.forEach((lease, index) => {
+                    historyHtml += `
+                    <div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                        <h5>Lease ${index + 1}</h5>
+                        <ul>
+                            <li><strong>Property:</strong> ${lease.property.address}, ${lease.property.city}, ${lease.property.state}</li>
+                            <li><strong>Lease Period:</strong> ${lease.lease_details.lease_start} to ${lease.lease_details.lease_end}</li>
+                            <li><strong>Monthly Rent:</strong> $${lease.lease_details.monthly_rent}</li>
+                            <li><strong>Status:</strong> ${lease.lease_details.lease_status}</li>
+                            <li><strong>Overall Score:</strong> ${lease.scores.overall_score}/100</li>
+                        </ul>
+                    </div>`;
+                });
+            }
+            
+            // Statistics
+            if (data.statistics) {
+                historyHtml += `
+                <h4>📈 Statistics</h4>
+                <ul>
+                    <li><strong>Total Leases:</strong> ${data.statistics.total_leases}</li>
+                    <li><strong>Average Rent:</strong> $${data.statistics.average_rent}</li>
+                    <li><strong>Average Score:</strong> ${data.statistics.average_score}/100</li>
+                    <li><strong>Active Leases:</strong> ${data.statistics.active_leases}</li>
+                </ul>`;
+            }
+            
+            historyHtml += '</div>';
+            responseDiv.innerHTML = historyHtml;
+        }
+
+        // Load token from localStorage if available
+        window.addEventListener('load', function() {
+            const savedToken = localStorage.getItem('auth_token');
+            if (savedToken) {
+                document.getElementById('authToken').value = savedToken;
+            }
+            
+            // Save token when entered
+            document.getElementById('authToken').addEventListener('change', function(e) {
+                if (e.target.value.trim()) {
+                    localStorage.setItem('auth_token', e.target.value.trim());
+                }
+            });
+        });
+    </script>
+
+    <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h3>📋 Usage Instructions</h3>
+        <ol>
+            <li>Log in to your account via the regular API login endpoint</li>
+            <li>Copy your Bearer token from the login response</li>
+            <li>Paste the token in the "Bearer Token" field above</li>
+            <li>Enter a valid rental code (format: RC123456)</li>
+            <li>Click "Verify Rental Code" to test the verification</li>
+        </ol>
+        
+        <h4>🔧 Expected Responses</h4>
+        <ul>
+            <li><strong>Success (200):</strong> Returns complete rental history data</li>
+            <li><strong>Not Found (404):</strong> Invalid rental code</li>
+            <li><strong>Conflict (409):</strong> Code already linked to another user</li>
+            <li><strong>Validation Error (422):</strong> Invalid code format</li>
+            <li><strong>Unauthorized (401):</strong> Invalid or missing token</li>
+        </ul>
+    </div>
+</body>
+</html>
