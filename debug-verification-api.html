@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Verification API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; max-height: 400px; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 3px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #0056b3; }
+        input[type="text"] { padding: 8px; margin: 5px; width: 300px; border: 1px solid #ccc; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Verification Questions API</h1>
+    
+    <div>
+        <label>Auth Token:</label>
+        <input type="text" id="authToken" placeholder="Enter your auth token (from localStorage or cookies)">
+        <button onclick="testAPI()">Test API</button>
+        <button onclick="tryFromStorage()">Try Token from Storage</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        function tryFromStorage() {
+            // Try to get token from localStorage
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('access_token');
+            if (token) {
+                document.getElementById('authToken').value = token;
+                testAPI();
+            } else {
+                showResult('error', 'No token found in localStorage. Please enter manually.');
+            }
+        }
+
+        async function testAPI() {
+            const token = document.getElementById('authToken').value.trim();
+            
+            if (!token) {
+                showResult('error', 'Please enter an auth token');
+                return;
+            }
+
+            showResult('info', 'Testing API...');
+
+            try {
+                const response = await fetch('https://rentalhist-backend-production.up.railway.app/api/dashboard/verification-questions', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let analysis = `
+✅ API Response: SUCCESS (${response.status})
+
+📊 ANALYSIS:
+- Questions: ${data.data?.questions?.length || 0}
+- Addresses: ${data.data?.addresses?.length || 0}
+- Success: ${data.success}
+
+📋 QUESTIONS PREVIEW:
+${data.data?.questions?.slice(0, 3).map((q, i) => `${i + 1}. ${q.question}`).join('\n') || 'No questions found'}
+
+📍 ADDRESSES PREVIEW:
+${data.data?.addresses?.slice(0, 2).map((a, i) => `${i + 1}. ${a.address} (${a.options?.length || 0} options)`).join('\n') || 'No addresses found'}
+                    `;
+
+                    showResult('success', analysis + '\n\nFULL RESPONSE:\n' + JSON.stringify(data, null, 2));
+                } else {
+                    showResult('error', `❌ API Error (${response.status}): ${response.statusText}\n\n` + JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showResult('error', `❌ Network Error: ${error.message}`);
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}"><pre>${message}</pre></div>`;
+        }
+
+        // Auto-try to get token on page load
+        window.addEventListener('load', () => {
+            console.log('🔍 Checking for stored auth tokens...');
+            
+            // Check various possible token storage locations
+            const possibleTokens = [
+                localStorage.getItem('authToken'),
+                localStorage.getItem('token'), 
+                localStorage.getItem('access_token'),
+                sessionStorage.getItem('authToken'),
+                sessionStorage.getItem('token')
+            ];
+
+            console.log('Found tokens:', possibleTokens.filter(t => t));
+            
+            if (possibleTokens.some(t => t)) {
+                tryFromStorage();
+            } else {
+                showResult('info', 'No auth token found. Please enter your token manually.\n\nYou can find it in:\n- Browser DevTools > Application > Local Storage\n- Network tab when making API requests\n- Frontend application state');
+            }
+        });
+    </script>
+</body>
+</html>

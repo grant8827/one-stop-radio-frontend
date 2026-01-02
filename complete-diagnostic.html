@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Diagnostic - Verification Questions</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; }
+        .step { margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 4px solid #007bff; }
+        .step h3 { margin-top: 0; color: #007bff; }
+        .success { background: #d4edda; border-left-color: #28a745; }
+        .success h3 { color: #28a745; }
+        .error { background: #f8d7da; border-left-color: #dc3545; }
+        .error h3 { color: #dc3545; }
+        .warning { background: #fff3cd; border-left-color: #ffc107; }
+        .warning h3 { color: #ffc107; }
+        pre { background: #282c34; color: #abb2bf; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input { padding: 10px; margin: 5px; width: 400px; border: 1px solid #ddd; border-radius: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Complete Diagnostic - Verification Questions</h1>
+        
+        <div class="step">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li>Login to your app at: <a href="https://frontend-development-production.up.railway.app" target="_blank">Frontend</a></li>
+                <li>Open DevTools (F12) → Application → Local Storage</li>
+                <li>Copy the value of <code>authToken</code></li>
+                <li>Paste it below and click "Run Full Diagnostic"</li>
+            </ol>
+            <input type="text" id="authToken" placeholder="Paste your auth token here">
+            <br>
+            <button onclick="runFullDiagnostic()">🚀 Run Full Diagnostic</button>
+            <button onclick="tryAutoToken()">🔑 Auto-Detect Token</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://rentalhist-backend-production.up.railway.app/api';
+        
+        function tryAutoToken() {
+            const token = localStorage.getItem('authToken') || 
+                         localStorage.getItem('token') || 
+                         sessionStorage.getItem('authToken');
+            
+            if (token) {
+                document.getElementById('authToken').value = token;
+                addResult('success', 'Token Auto-Detected', `Found token in storage: ${token.substring(0, 20)}...`);
+            } else {
+                addResult('warning', 'No Token Found', 'Please paste your token manually from the frontend app.');
+            }
+        }
+
+        async function runFullDiagnostic() {
+            const token = document.getElementById('authToken').value.trim();
+            
+            if (!token) {
+                addResult('error', 'Missing Token', 'Please enter your auth token first.');
+                return;
+            }
+
+            clearResults();
+            
+            // Test 1: Health Check
+            await testHealthCheck();
+            
+            // Test 2: Verification Questions API (with auth)
+            await testVerificationQuestionsAPI(token);
+            
+            // Test 3: Frontend Response Structure Check
+            await testFrontendExpectations(token);
+        }
+
+        async function testHealthCheck() {
+            addResult('info', 'Test 1: Health Check', 'Checking production backend health...');
+            
+            try {
+                const response = await fetch('https://rentalhist-backend-production.up.railway.app/health');
+                const data = await response.json();
+                
+                let message = `
+✅ Backend Status: ${data.status}
+📅 Timestamp: ${data.timestamp}
+🗄️ Database: ${data.database}
+📦 Code Version: ${data.code_version}
+📊 Total Questions: ${data.verification_questions_total}
+✅ Active Questions: ${data.verification_questions_active}
+                `;
+                
+                if (data.verification_questions_active > 0) {
+                    addResult('success', 'Test 1: PASSED ✅', message + '\n\nProduction has active questions!');
+                } else {
+                    addResult('error', 'Test 1: FAILED ❌', message + '\n\n⚠️ No active questions in database!');
+                }
+                
+                addCode(JSON.stringify(data, null, 2));
+            } catch (error) {
+                addResult('error', 'Test 1: FAILED ❌', `Error: ${error.message}`);
+            }
+        }
+
+        async function testVerificationQuestionsAPI(token) {
+            addResult('info', 'Test 2: Verification Questions API', 'Calling /api/dashboard/verification-questions with auth...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/verification-questions`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let message = `
+HTTP Status: ${response.status} ${response.statusText}
+Success: ${data.success}
+                `;
+                
+                if (response.ok && data.success && data.data) {
+                    const { questions, addresses } = data.data;
+                    message += `
+✅ Questions Found: ${questions?.length || 0}
+📍 Addresses Found: ${addresses?.length || 0}
+
+📋 Sample Question:
+${questions?.[0]?.question || 'N/A'}
+
+📍 Sample Address:
+${addresses?.[0]?.address || 'N/A'}
+Options: ${addresses?.[0]?.options?.length || 0}
+                    `;
+                    addResult('success', 'Test 2: PASSED ✅', message);
+                } else {
+                    message += `
+❌ API Error
+Message: ${data.message || 'Unknown error'}
+Debug: ${data.debug || 'N/A'}
+                    `;
+                    addResult('error', 'Test 2: FAILED ❌', message);
+                }
+                
+                addCode(JSON.stringify(data, null, 2));
+            } catch (error) {
+                addResult('error', 'Test 2: FAILED ❌', `Network Error: ${error.message}`);
+            }
+        }
+
+        async function testFrontendExpectations(token) {
+            addResult('info', 'Test 3: Frontend Structure Check', 'Verifying response matches frontend expectations...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/verification-questions`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let checks = [];
+                let passed = 0;
+                let total = 0;
+                
+                // Check 1: Response has success field
+                total++;
+                if (data.success === true) {
+                    checks.push('✅ response.success === true');
+                    passed++;
+                } else {
+                    checks.push(`❌ response.success !== true (got: ${data.success})`);
+                }
+                
+                // Check 2: Response has data field
+                total++;
+                if (data.data) {
+                    checks.push('✅ response.data exists');
+                    passed++;
+                } else {
+                    checks.push('❌ response.data is missing');
+                }
+                
+                // Check 3: data.questions exists and is array
+                total++;
+                if (data.data?.questions && Array.isArray(data.data.questions)) {
+                    checks.push(`✅ data.questions is array (length: ${data.data.questions.length})`);
+                    passed++;
+                } else {
+                    checks.push('❌ data.questions is not an array');
+                }
+                
+                // Check 4: data.addresses exists and is array
+                total++;
+                if (data.data?.addresses && Array.isArray(data.data.addresses)) {
+                    checks.push(`✅ data.addresses is array (length: ${data.data.addresses.length})`);
+                    passed++;
+                } else {
+                    checks.push('❌ data.addresses is not an array');
+                }
+                
+                // Check 5: Questions have required fields
+                total++;
+                if (data.data?.questions?.[0]?.question) {
+                    checks.push('✅ questions[0].question exists');
+                    passed++;
+                } else {
+                    checks.push('❌ questions[0].question is missing');
+                }
+                
+                // Check 6: Addresses have options array
+                total++;
+                if (data.data?.addresses?.[0]?.options && Array.isArray(data.data.addresses[0].options)) {
+                    checks.push(`✅ addresses[0].options is array (length: ${data.data.addresses[0].options.length})`);
+                    passed++;
+                } else {
+                    checks.push('❌ addresses[0].options is missing or not an array');
+                }
+                
+                const message = `
+Frontend Structure Validation:
+${checks.join('\n')}
+
+Score: ${passed}/${total} checks passed
+                `;
+                
+                if (passed === total) {
+                    addResult('success', 'Test 3: PASSED ✅', message + '\n\n🎉 All checks passed! Frontend should work correctly.');
+                } else {
+                    addResult('error', 'Test 3: FAILED ❌', message + '\n\n⚠️ Structure mismatch detected!');
+                }
+                
+            } catch (error) {
+                addResult('error', 'Test 3: FAILED ❌', `Error: ${error.message}`);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function addResult(type, title, message) {
+            const div = document.createElement('div');
+            div.className = `step ${type}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${message}</pre>`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function addCode(code) {
+            const lastStep = document.getElementById('results').lastElementChild;
+            if (lastStep) {
+                const pre = document.createElement('pre');
+                pre.textContent = code;
+                lastStep.appendChild(pre);
+            }
+        }
+
+        // Auto-try to detect token on load
+        window.addEventListener('load', tryAutoToken);
+    </script>
+</body>
+</html>

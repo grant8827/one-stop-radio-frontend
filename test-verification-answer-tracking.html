@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Answer Tracking Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.reset {
+            background-color: #dc3545;
+        }
+        button.reset:hover {
+            background-color: #c82333;
+        }
+        .output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .stats-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .question-simulator {
+            margin: 20px 0;
+        }
+        .question-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .question-options button {
+            flex: 1;
+        }
+        .correct {
+            background-color: #28a745;
+        }
+        .incorrect {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Verification Answer Tracking Test</h1>
+        
+        <div class="section">
+            <h2>📝 Authentication</h2>
+            <label>Email:</label>
+            <input type="email" id="email" placeholder="user@example.com" value="test@example.com">
+            <label>Password:</label>
+            <input type="password" id="password" placeholder="password" value="password">
+            <button onclick="login()">🔐 Login</button>
+            <div id="authOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Current Statistics</h2>
+            <button onclick="getStats()">📈 Get Current Stats</button>
+            <div id="statsDisplay" class="stats-display"></div>
+            <div id="statsOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>✅ Simulate Answer Recording</h2>
+            <div class="question-simulator">
+                <p><strong>Question 1:</strong> What was your lease period for 123 Main St?</p>
+                <div class="question-options">
+                    <button onclick="recordAnswer(0, true)" class="correct">✓ Correct Answer</button>
+                    <button onclick="recordAnswer(0, false)" class="incorrect">✗ Wrong Answer</button>
+                </div>
+            </div>
+            
+            <div class="question-simulator">
+                <p><strong>Question 2:</strong> What was your monthly rent at 456 Oak Ave?</p>
+                <div class="question-options">
+                    <button onclick="recordAnswer(1, true)" class="correct">✓ Correct Answer</button>
+                    <button onclick="recordAnswer(1, false)" class="incorrect">✗ Wrong Answer</button>
+                </div>
+            </div>
+            
+            <div class="question-simulator">
+                <p><strong>Question 3:</strong> What was your lease period for 789 Elm Rd?</p>
+                <div class="question-options">
+                    <button onclick="recordAnswer(2, true)" class="correct">✓ Correct Answer</button>
+                    <button onclick="recordAnswer(2, false)" class="incorrect">✗ Wrong Answer</button>
+                </div>
+            </div>
+            
+            <div class="question-simulator">
+                <p><strong>Question 4:</strong> What was your monthly rent at 321 Pine Ln?</p>
+                <div class="question-options">
+                    <button onclick="recordAnswer(3, true)" class="correct">✓ Correct Answer</button>
+                    <button onclick="recordAnswer(3, false)" class="incorrect">✗ Wrong Answer</button>
+                </div>
+            </div>
+            
+            <div id="answerOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔄 Reset Statistics</h2>
+            <button class="reset" onclick="resetStats()">🗑️ Reset All Stats</button>
+            <div id="resetOutput" class="output"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        const API_BASE = 'https://rentalhist.com/api';
+
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent = `[${timestamp}] ${message}\n\n` + element.textContent;
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            log('authOutput', '🔄 Attempting login...');
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    log('authOutput', `✅ Login successful!\nToken: ${authToken.substring(0, 20)}...`);
+                } else {
+                    log('authOutput', `❌ Login failed: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log('authOutput', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function getStats() {
+            if (!authToken) {
+                log('statsOutput', '❌ Please login first');
+                return;
+            }
+
+            log('statsOutput', '🔄 Fetching verification statistics...');
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/verification/stats`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('statsOutput', `✅ Stats Retrieved:\n${JSON.stringify(data, null, 2)}`);
+                    displayStats(data.data);
+                } else {
+                    log('statsOutput', `❌ Failed: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log('statsOutput', `❌ Error: ${error.message}`);
+            }
+        }
+
+        function displayStats(stats) {
+            const container = document.getElementById('statsDisplay');
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Correct Answers</div>
+                    <div class="stat-value">${stats.answered_right || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Wrong Answers</div>
+                    <div class="stat-value">${stats.answered_wrong || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Questions</div>
+                    <div class="stat-value">${stats.total_questions || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Accuracy</div>
+                    <div class="stat-value">${stats.accuracy_percentage || 0}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Verification Level</div>
+                    <div class="stat-value" style="font-size: 18px;">${stats.verification_level || 'Unknown'}</div>
+                </div>
+            `;
+        }
+
+        async function recordAnswer(questionId, isCorrect) {
+            if (!authToken) {
+                log('answerOutput', '❌ Please login first');
+                return;
+            }
+
+            log('answerOutput', `🔄 Recording answer for Question ${questionId + 1}... (${isCorrect ? 'Correct' : 'Wrong'})`);
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/verification/record-answer`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        is_correct: isCorrect,
+                        question_id: questionId,
+                        answer_data: {
+                            question_index: questionId,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('answerOutput', `✅ Answer Recorded!\n${JSON.stringify(data, null, 2)}`);
+                    // Auto-refresh stats
+                    getStats();
+                } else {
+                    log('answerOutput', `❌ Failed: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log('answerOutput', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function resetStats() {
+            if (!authToken) {
+                log('resetOutput', '❌ Please login first');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reset all verification statistics?')) {
+                return;
+            }
+
+            log('resetOutput', '🔄 Resetting statistics...');
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/verification/reset-stats`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('resetOutput', `✅ Stats Reset Successfully!\n${JSON.stringify(data, null, 2)}`);
+                    // Auto-refresh stats
+                    getStats();
+                } else {
+                    log('resetOutput', `❌ Failed: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log('resetOutput', `❌ Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

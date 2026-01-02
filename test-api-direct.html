@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct API Test</title>
+</head>
+<body>
+    <h1>Testing Production API</h1>
+    <button onclick="testAPI()">Test Verification Questions API</button>
+    <pre id="output" style="background: #f4f4f4; padding: 20px; margin-top: 20px;"></pre>
+
+    <script>
+        async function testAPI() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...';
+
+            const token = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL3JlbnRhbGhpc3QtYmFja2VuZC1wcm9kdWN0aW9uLnVwLnJhaWx3YXkuYXBwL2FwaS9sb2dpbiIsImlhdCI6MTczODA5MTc3OSwiZXhwIjoxNzM4MDk1Mzc5LCJuYmYiOjE3MzgwOTE3NzksImp0aSI6ImdIdWVPeEhZZUNOcm82UEwiLCJzdWIiOiIxMTciLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.lDZvMXTcVFsZQxTnFWwDsZWyKHq_-cR3YYl5oCKcbJA';
+
+            try {
+                console.log('🔍 Calling API...');
+                const response = await fetch('https://rentalhist-backend-production.up.railway.app/api/dashboard/verification-questions', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                console.log('📡 Response status:', response.status);
+                console.log('📡 Response headers:', response.headers);
+
+                const contentType = response.headers.get('content-type');
+                console.log('📡 Content-Type:', contentType);
+
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+
+                console.log('📦 Response data:', data);
+
+                output.textContent = JSON.stringify({
+                    status: response.status,
+                    statusText: response.statusText,
+                    contentType: contentType,
+                    data: data
+                }, null, 2);
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+                output.textContent = 'ERROR: ' + error.message + '\n\n' + error.stack;
+            }
+        }
+    </script>
+</body>
+</html>
