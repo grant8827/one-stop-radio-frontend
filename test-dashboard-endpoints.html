@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard Endpoints</title>
+</head>
+<body>
+    <h1>Dashboard Endpoints Test</h1>
+    <button onclick="testRenterScore()">Test Renter Score</button>
+    <button onclick="testRenterHistory()">Test Renter History</button>
+    <button onclick="testPastDue()">Test Past Due</button>
+    <pre id="output"></pre>
+
+    <script>
+        const API_BASE = 'https://rentalhist-backend-production.up.railway.app/api';
+        const TOKEN = prompt('Enter your auth token:');
+
+        async function makeRequest(endpoint) {
+            const output = document.getElementById('output');
+            output.textContent = `Calling ${endpoint}...\\n`;
+            
+            try {
+                const response = await fetch(`${API_BASE}/${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${TOKEN}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                output.textContent += `\\nStatus: ${response.status}\\n`;
+                output.textContent += `Response: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                output.textContent += `\\nError: ${error.message}`;
+            }
+        }
+
+        function testRenterScore() {
+            makeRequest('dashboard/renter-score');
+        }
+
+        function testRenterHistory() {
+            makeRequest('dashboard/renter-history');
+        }
+
+        function testPastDue() {
+            makeRequest('dashboard/past-due');
+        }
+    </script>
+</body>
+</html>
