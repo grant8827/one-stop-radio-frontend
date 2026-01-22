@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Test</title>
+</head>
+<body>
+    <h1>Testing Frontend API Call</h1>
+    <button onclick="testAPI()">Test Renter History API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Get auth token from localStorage (assuming user is logged in)
+                const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+                
+                if (!token) {
+                    resultDiv.innerHTML = '❌ No auth token found. Please log in first.';
+                    return;
+                }
+                
+                console.log('🔍 Using token:', token.substring(0, 20) + '...');
+                
+                // Make direct API call
+                const response = await fetch('/api/dashboard/renter-history', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response headers:', response.headers);
+                
+                const data = await response.json();
+                console.log('🔍 Raw API response:', data);
+                
+                resultDiv.innerHTML = `
+                    <h3>API Response:</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Success:</strong> ${data.success}</p>
+                    <p><strong>Data Count:</strong> ${data.data ? data.data.length : 0}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('❌ API Error:', error);
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
