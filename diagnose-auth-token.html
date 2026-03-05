@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Token Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        h1 { color: #00ffff; }
+        h2 { color: #ffff00; margin-top: 30px; }
+        .section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #00ff00;
+        }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .warning { color: #ffaa00; }
+        pre {
+            background: #0a0a0a;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 3px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Authentication Token Diagnostic Tool</h1>
+    <p>This tool will help diagnose why points aren't showing (user: grant882788)</p>
+
+    <div class="section">
+        <h2>Step 1: Check Browser Storage</h2>
+        <button onclick="checkLocalStorage()">Check LocalStorage Tokens</button>
+        <div id="localStorageResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Test API Call</h2>
+        <button onclick="testPointsAPI()">Test Points API</button>
+        <div id="apiTestResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Test Login</h2>
+        <p>If no token found, you can test login here:</p>
+        <input type="email" id="loginEmail" placeholder="Email" style="padding: 8px; width: 250px; margin: 5px;">
+        <input type="password" id="loginPassword" placeholder="Password" style="padding: 8px; width: 250px; margin: 5px;">
+        <br>
+        <button onclick="testLogin()">Test Login & Store Token</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 4: Manual Token Entry</h2>
+        <p>If you have a valid token, paste it here to test:</p>
+        <input type="text" id="manualToken" placeholder="Paste token here" style="padding: 8px; width: 500px; margin: 5px;">
+        <br>
+        <button onclick="setManualToken()">Store Token & Test</button>
+        <div id="manualTokenResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+        function checkLocalStorage() {
+            const result = document.getElementById('localStorageResult');
+            result.innerHTML = '<h3>Checking localStorage...</h3>';
+            
+            const token = localStorage.getItem('token');
+            const rhToken = localStorage.getItem('rh_token');
+            const user = localStorage.getItem('rh_user');
+            
+            let html = '<pre>';
+            html += '=== LOCALSTORAGE CONTENTS ===\n\n';
+            
+            if (rhToken) {
+                html += '<span class="success">✅ rh_token: ' + rhToken.substring(0, 30) + '...</span>\n';
+                html += '   Length: ' + rhToken.length + ' characters\n\n';
+            } else {
+                html += '<span class="error">❌ rh_token: NOT FOUND</span>\n\n';
+            }
+            
+            if (token) {
+                html += '<span class="success">✅ token: ' + token.substring(0, 30) + '...</span>\n';
+                html += '   Length: ' + token.length + ' characters\n\n';
+            } else {
+                html += '<span class="warning">⚠️  token: NOT FOUND</span>\n\n';
+            }
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    html += '<span class="success">✅ rh_user: Found</span>\n';
+                    html += '   User ID: ' + userData.id + '\n';
+                    html += '   Email: ' + userData.email + '\n';
+                    html += '   Username: ' + userData.username + '\n\n';
+                } catch (e) {
+                    html += '<span class="error">⚠️  rh_user: Invalid JSON</span>\n\n';
+                }
+            } else {
+                html += '<span class="error">❌ rh_user: NOT FOUND</span>\n\n';
+            }
+            
+            html += '\n=== DIAGNOSIS ===\n';
+            if (rhToken || token) {
+                html += '<span class="success">Token exists in browser storage!</span>\n';
+                html += 'If points still don\'t show, the token may be expired or invalid.\n';
+            } else {
+                html += '<span class="error">NO TOKEN FOUND - You need to log in!</span>\n';
+                html += 'This explains why points API returns 401 Unauthorized.\n';
+            }
+            html += '</pre>';
+            
+            result.innerHTML = html;
+        }
+
+        async function testPointsAPI() {
+            const result = document.getElementById('apiTestResult');
+            result.innerHTML = '<h3>Testing Points API...</h3>';
+            
+            const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+            
+            if (!token) {
+                result.innerHTML += '<pre><span class="error">❌ No token found in localStorage. Cannot test API.</span></pre>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/dashboard/points`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let html = '<pre>';
+                html += '=== API RESPONSE ===\n\n';
+                html += 'HTTP Status: ' + response.status + '\n\n';
+                
+                if (response.status === 200) {
+                    html += '<span class="success">✅ SUCCESS!</span>\n\n';
+                    html += 'Points Data:\n';
+                    html += '  Current Balance: ' + (data.data?.current_balance || '0') + '\n';
+                    html += '  Lifetime Points: ' + (data.data?.lifetime_points || '0') + '\n';
+                    html += '  Points Redeemed: ' + (data.data?.points_redeemed || '0') + '\n\n';
+                    html += 'Full Response:\n' + JSON.stringify(data, null, 2);
+                } else if (response.status === 401) {
+                    html += '<span class="error">❌ UNAUTHORIZED (401)</span>\n\n';
+                    html += 'Token is invalid or expired. You need to log in again.\n\n';
+                    html += 'Response:\n' + JSON.stringify(data, null, 2);
+                } else {
+                    html += '<span class="error">❌ ERROR</span>\n\n';
+                    html += 'Response:\n' + JSON.stringify(data, null, 2);
+                }
+                html += '</pre>';
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML += '<pre><span class="error">❌ Network Error: ' + error.message + '</span></pre>';
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('loginResult');
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!email || !password) {
+                result.innerHTML = '<pre><span class="error">Please enter both email and password</span></pre>';
+                return;
+            }
+            
+            result.innerHTML = '<h3>Testing login...</h3>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<pre>';
+                html += '=== LOGIN RESPONSE ===\n\n';
+                html += 'HTTP Status: ' + response.status + '\n\n';
+                
+                if (response.status === 200 && data.token) {
+                    html += '<span class="success">✅ LOGIN SUCCESSFUL!</span>\n\n';
+                    html += 'Token received: ' + data.token.substring(0, 30) + '...\n';
+                    html += 'User ID: ' + data.user.id + '\n';
+                    html += 'Email: ' + data.user.email + '\n\n';
+                    
+                    // Store the token
+                    localStorage.setItem('rh_token', data.token);
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('rh_user', JSON.stringify(data.user));
+                    
+                    html += '<span class="success">✅ Token stored in localStorage!</span>\n\n';
+                    html += 'Now test the Points API above to verify it works.\n';
+                } else {
+                    html += '<span class="error">❌ LOGIN FAILED</span>\n\n';
+                    html += 'Response:\n' + JSON.stringify(data, null, 2);
+                }
+                html += '</pre>';
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = '<pre><span class="error">❌ Network Error: ' + error.message + '</span></pre>';
+            }
+        }
+
+        function setManualToken() {
+            const result = document.getElementById('manualTokenResult');
+            const token = document.getElementById('manualToken').value.trim();
+            
+            if (!token) {
+                result.innerHTML = '<pre><span class="error">Please enter a token</span></pre>';
+                return;
+            }
+            
+            localStorage.setItem('rh_token', token);
+            localStorage.setItem('token', token);
+            
+            result.innerHTML = '<pre><span class="success">✅ Token stored!</span>\n\nNow test the Points API above.</pre>';
+        }
+
+        // Auto-check on load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

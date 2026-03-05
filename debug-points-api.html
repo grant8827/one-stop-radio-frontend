@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Points API Debug</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        h1 { color: #00ffff; }
+        h2 { color: #ffff00; margin-top: 30px; }
+        .section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #00ff00;
+        }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .warning { color: #ffaa00; }
+        pre {
+            background: #0a0a0a;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .api-test {
+            background: #2a2a2a;
+            padding: 15px;
+            border: 2px solid #444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Points API Debugging Tool</h1>
+    <p>Comparing Points API vs Past Due API (which is working)</p>
+
+    <div class="section">
+        <button onclick="testAllEndpoints()">Test All Endpoints</button>
+        <button onclick="checkLocalStorage()">Check Auth Token</button>
+    </div>
+
+    <div id="authStatus"></div>
+
+    <div class="comparison">
+        <div class="api-test">
+            <h2>❌ Points API (Broken)</h2>
+            <button onclick="testPointsAPI()">Test Points API</button>
+            <div id="pointsResult"></div>
+        </div>
+
+        <div class="api-test">
+            <h2>✅ Past Due API (Working)</h2>
+            <button onclick="testPastDueAPI()">Test Past Due API</button>
+            <div id="pastDueResult"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Comparison Results</h2>
+        <div id="comparisonResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+        function checkLocalStorage() {
+            const result = document.getElementById('authStatus');
+            const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+            
+            if (token) {
+                result.innerHTML = `
+                    <div class="section">
+                        <span class="success">✅ Auth Token Found</span>
+                        <pre>Token (first 30 chars): ${token.substring(0, 30)}...
+Length: ${token.length} characters</pre>
+                    </div>
+                `;
+            } else {
+                result.innerHTML = `
+                    <div class="section">
+                        <span class="error">❌ No Auth Token Found</span>
+                        <p>You need to log in first</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testPointsAPI() {
+            const result = document.getElementById('pointsResult');
+            result.innerHTML = '<p>Testing...</p>';
+            
+            const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+            
+            if (!token) {
+                result.innerHTML = '<pre class="error">❌ No token found</pre>';
+                return null;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/dashboard/points`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let html = `<pre>HTTP Status: ${response.status}\n\n`;
+                
+                if (response.status === 200) {
+                    html += '<span class="success">✅ SUCCESS</span>\n\n';
+                    html += 'Response Structure:\n';
+                    html += JSON.stringify(data, null, 2);
+                    
+                    // Check if response matches frontend expectations
+                    html += '\n\n=== VALIDATION ===\n';
+                    html += `Has 'status' property: ${!!data.status}\n`;
+                    html += `Has 'data' property: ${!!data.data}\n`;
+                    html += `Has 'data.current_balance': ${!!data.data?.current_balance}\n`;
+                    html += `Current balance value: ${data.data?.current_balance || 'MISSING'}\n`;
+                } else {
+                    html += `<span class="error">❌ HTTP ${response.status}</span>\n\n`;
+                    html += JSON.stringify(data, null, 2);
+                }
+                
+                html += '</pre>';
+                result.innerHTML = html;
+                return { status: response.status, data };
+            } catch (error) {
+                result.innerHTML = `<pre class="error">❌ Error: ${error.message}</pre>`;
+                return null;
+            }
+        }
+
+        async function testPastDueAPI() {
+            const result = document.getElementById('pastDueResult');
+            result.innerHTML = '<p>Testing...</p>';
+            
+            const token = localStorage.getItem('rh_token') || localStorage.getItem('token');
+            
+            if (!token) {
+                result.innerHTML = '<pre class="error">❌ No token found</pre>';
+                return null;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/dashboard/past-due?tab=summary`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                let html = `<pre>HTTP Status: ${response.status}\n\n`;
+                
+                if (response.status === 200) {
+                    html += '<span class="success">✅ SUCCESS</span>\n\n';
+                    html += 'Response Structure:\n';
+                    html += JSON.stringify(data, null, 2);
+                    
+                    html += '\n\n=== VALIDATION ===\n';
+                    html += `Has 'success' property: ${!!data.success}\n`;
+                    html += `Has 'data' property: ${!!data.data}\n`;
+                } else {
+                    html += `<span class="error">❌ HTTP ${response.status}</span>\n\n`;
+                    html += JSON.stringify(data, null, 2);
+                }
+                
+                html += '</pre>';
+                result.innerHTML = html;
+                return { status: response.status, data };
+            } catch (error) {
+                result.innerHTML = `<pre class="error">❌ Error: ${error.message}</pre>`;
+                return null;
+            }
+        }
+
+        async function testAllEndpoints() {
+            checkLocalStorage();
+            
+            const pointsResult = await testPointsAPI();
+            const pastDueResult = await testPastDueAPI();
+            
+            // Wait a moment for both to complete
+            setTimeout(() => {
+                const comparison = document.getElementById('comparisonResult');
+                let html = '<pre>';
+                
+                html += '=== COMPARISON ===\n\n';
+                
+                if (pointsResult && pastDueResult) {
+                    html += 'Points API:\n';
+                    html += `  Status: ${pointsResult.status}\n`;
+                    html += `  Response has 'status': ${!!pointsResult.data?.status}\n`;
+                    html += `  Response has 'data': ${!!pointsResult.data?.data}\n`;
+                    html += `  Current Balance: ${pointsResult.data?.data?.current_balance || 'MISSING'}\n\n`;
+                    
+                    html += 'Past Due API:\n';
+                    html += `  Status: ${pastDueResult.status}\n`;
+                    html += `  Response has 'success': ${!!pastDueResult.data?.success}\n`;
+                    html += `  Response has 'data': ${!!pastDueResult.data?.data}\n\n`;
+                    
+                    html += '=== DIAGNOSIS ===\n';
+                    
+                    if (pointsResult.status === 200 && pastDueResult.status === 200) {
+                        html += '<span class="success">✅ Both APIs return 200 OK</span>\n';
+                        html += 'Issue is likely in response structure or frontend parsing\n\n';
+                        
+                        // Check response structure differences
+                        if (pointsResult.data?.data?.current_balance !== undefined) {
+                            html += `<span class="success">✅ Points data EXISTS: ${pointsResult.data.data.current_balance} points</span>\n`;
+                            html += '<span class="warning">⚠️  Check frontend console logs for parsing errors</span>\n';
+                        } else {
+                            html += '<span class="error">❌ Points data MISSING from response</span>\n';
+                            html += 'Backend controller may not be returning correct data\n';
+                        }
+                    } else if (pointsResult.status === 401) {
+                        html += '<span class="error">❌ Points API: Unauthorized (401)</span>\n';
+                        html += 'Token is invalid or expired\n';
+                    } else {
+                        html += '<span class="warning">Different HTTP status codes</span>\n';
+                    }
+                }
+                
+                html += '</pre>';
+                comparison.innerHTML = html;
+            }, 1000);
+        }
+
+        // Auto-run on load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>
